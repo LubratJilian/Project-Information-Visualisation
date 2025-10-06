@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Visualisations interactives avec D3.js</title>
+  <link rel="stylesheet" href="index.css">
+</head>
+    <body>
+    <header class="hero">
+        <h1>Visualisation d'informations avec D3.js</h1>
+        <p>Ce projet démontre plusieurs techniques de visualisation de données créées avec D3.js. Chaque exemple est auto-contenu et facile à adapter à vos propres jeux de données.</p>
+        <nav class="toc">
+        <a href="#treemap">Hiérarchie en boîtes imbriquées</a>
+        <a href="#bubbles">Bulles proportionnelles</a>
+        <a href="#map">Carte interactive</a>
+        <a href="#pie">Diagramme circulaire</a>
+        <a href="#histogram">Histogramme</a>
+        </nav>
+    </header>
+
+    <main>
+        <div class="button" id="treemap">
+            <h2>Hiérarchie en boîtes imbriquées</h2>
+            <p>Représente la structure pays → catégories → chaînes. La taille de chaque boîte correspond au nombre d’abonnés.</p>
+        </div>
+
+        <div class="button" id="bubbles">
+            <h2>Bulles proportionnelles</h2>
+            <p>Chaque créateur est représenté par une bulle dont la taille est proportionnelle au nombre d’abonnés.</p>
+        </div>
+
+        <div class="button" id="map">
+            <h2>Carte interactive</h2>
+            <p>Permet de visualiser la répartition géographique des créateurs et de passer d’une vue mondiale à une vue par pays.</p>
+        </div>
+
+        <div class="button" id="pie">
+            <h2>Diagramme circulaire</h2>
+            <p>Affiche la répartition des catégories dans un pays sélectionné, pour analyser la popularité relative des thèmes.</p>
+        </div>
+
+        <div class="button" id="histogram">
+            <h2>Histogramme</h2>
+            <p>Compare le nombre d’abonnés par rapport au nombre moyen de vues des chaînes, afin d’étudier leur taux de conversion.</p>
+        </div>
+    </main>
+    </body>
+</html>
