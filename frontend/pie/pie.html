@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Diagramme circulaire — Catégories par pays</title>
+  <link rel="stylesheet" href="pie.css">
+</head>
+<body>
+  <header>
+    <h1>Diagramme circulaire — vues par catégorie (par pays)</h1>
+    <p>Sélectionnez un pays pour voir la répartition des catégories selon le nombre de vues.</p>
+    <label for="countrySelect">Pays :</label>
+    <select id="countrySelect"><option>Chargement…</option></select>
+  </header>
+
+  <main>
+    <div id="breadcrumb" class="breadcrumb"></div>
+    <div id="chart" tabindex="0"></div>
+    <aside id="legend"></aside>
+  </main>
+
+  <!-- Load d3 as a global script so `window.d3` is available to the module -->
+  <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+  <!-- Then load the pie module which expects `window.d3` to exist -->
+  <script type="module" src="pie.js"></script>
+</body>
+</html>
