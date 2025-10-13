@@ -54,7 +54,7 @@ class DataPipeline {
   aggregate(reducer) {
     this.operations.push(grouped => {
       if (!(grouped instanceof Map)) {
-        console.warn("⚠️ aggregate() doit être appelé après groupBy()");
+        console.warn("aggregate() doit être appelé après groupBy()");
         return grouped;
       }
       return Array.from(grouped, ([key, values]) => ({
