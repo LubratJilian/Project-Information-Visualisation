@@ -70,7 +70,6 @@ class DataPipeline {
   }
 }
 
-
 /*
 Exemple d'utilisation:
     const pipeline = new DataPipeline();
