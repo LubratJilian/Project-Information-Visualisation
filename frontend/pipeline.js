@@ -69,3 +69,16 @@ class DataPipeline {
     return this.operations.reduce((result, op) => op(result), this.data);
   }
 }
+
+
+/*
+Exemple d'utilisation:
+    const pipeline = new DataPipeline();
+    await pipeline
+    .load("./gdp.csv", "csv")
+    .joinGeo("./countries.geojson", "country_code", "ISO_A3")
+    .filter(d => d.gdp > 1000000)
+    .sortBy("gdp", false);
+
+    const result = pipeline.run();
+*/
