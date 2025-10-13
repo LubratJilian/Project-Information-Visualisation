@@ -59,13 +59,7 @@ function updateBreadcrumb() {
     }
   });
 
-  // add a back button when drilled
-  if (currentDrillCategory) {
-    breadcrumbEl.append('button').attr('class','back-btn').text('Retour').on('click', () => {
-      currentDrillCategory = null;
-      renderForCountry(currentCountry);
-    });
-  }
+  // (no explicit back button; user can click the country or category in the breadcrumb to navigate)
 }
 
 function parseNumber(v) {
@@ -276,16 +270,24 @@ function renderLegend(dataset) {
   let opts = {};
   if (arguments.length > 1) opts = arguments[1] || {};
   if (opts.title) legend.append('div').attr('class','legend-title').text(opts.title);
+  const total = d3.sum(dataset, d => d.value) || 0;
   const list = legend.selectAll('.item').data(dataset).enter().append('div').attr('class', 'item');
   list.append('span').attr('class', 'swatch').style('background', d => color(d.category));
-  list.append('span').attr('class', 'label').text(d => `${d.category} — ${d3.format(',')(d.value)} vues`);
+  list.append('span').attr('class', 'label').text(d => {
+    const pct = total > 0 ? ((d.value / total) * 100).toFixed(1) : '0.0';
+    return `${d.category} — ${pct}% — ${d3.format(',')(d.value)} vues`;
+  });
 }
 
 // tooltip
 const tooltip = d3.select('body').append('div').attr('class', 'pie-tooltip').style('display','none');
 function showTooltip(event, d) {
+  // compute total from currently bound path data (categories or drill items)
+  const bound = svg.selectAll('path').data();
+  const total = d3.sum(bound, x => x && x.data ? x.data.value : 0) || 0;
+  const pct = total > 0 ? ((d.data.value / total) * 100).toFixed(1) : '0.0';
   tooltip.style('display','block')
-    .html(`<strong>${d.data.category}</strong><br>${d3.format(',')(d.data.value)} vues`);
+    .html(`<strong>${d.data.category}</strong><br>${pct}% — ${d3.format(',')(d.data.value)} vues`);
   const [mx, my] = d3.pointer(event);
   tooltip.style('left', (event.pageX + 10) + 'px').style('top', (event.pageY + 10) + 'px');
 }
