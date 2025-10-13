@@ -70,6 +70,8 @@ class DataPipeline {
   }
 }
 
+export default DataPipeline
+
 /*
 Exemple d'utilisation:
     const pipeline = new DataPipeline();
