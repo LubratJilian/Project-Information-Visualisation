@@ -13,7 +13,7 @@
         <a href="#treemap">Hiérarchie en boîtes imbriquées</a>
         <a href="#bubbles">Bulles proportionnelles</a>
         <a href="#map">Carte interactive</a>
-        <a href="#pie">Diagramme circulaire</a>
+        <a href="pie/pie.html">Diagramme circulaire</a>
         <a href="#histogram">Histogramme</a>
         </nav>
     </header>
@@ -36,7 +36,7 @@
 
         <div class="button" id="pie">
             <h2>Diagramme circulaire</h2>
-            <p>Affiche la répartition des catégories dans un pays sélectionné, pour analyser la popularité relative des thèmes.</p>
+            <p>Affiche la répartition des catégories dans un pays sélectionné, pour analyser la popularité relative des thèmes.<a href="pie/pie.html">Voir la page Diagramme circulaire</a></p>
         </div>
 
         <div class="button" id="histogram">
@@ -46,5 +46,6 @@
     </main>
     </body>
 <script src="index.js" type="module"></script>
-<script src="./node_modules/d3/dist/d3.min.js"></script>
+<!-- Load d3 from CDN to avoid serving node_modules from the static folder -->
+<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
 </html>
