@@ -1,21 +1,27 @@
 :root {
-  color-scheme: light dark;
-  --bg: #f3f4f6;
-  --fg: #1f2933;
-  --accent: #2563eb;
-  --panel: #ffffffdd;
-  font-family: 'Segoe UI', Roboto, sans-serif;
+    color-scheme: light dark;
+    --bg: #f3f4f6;
+    --fg: #1f2933;
+    --accent: #2563eb;
+    --panel: #ffffffdd;
+    font-family: 'Segoe UI', Roboto, sans-serif;
 }
 
 * {
-  box-sizing: border-box;
+    box-sizing: border-box;
 }
 
 body {
-  margin: 0;
-  background: var(--bg);
-  color: var(--fg);
-  line-height: 1.6;
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--fg);
+    line-height: 1.6;
+    height: 100vh;
+    width: 100vw;
+    display: grid;
+    grid-template-rows: auto 1fr;
+    overflow: hidden;
 }
 
 .hero {
@@ -49,23 +55,29 @@ body {
         border-radius: 999px;
         border: 1px solid rgba(255, 255, 255, 0.4);
 
-      &:focus {
-        background: rgba(255, 255, 255, 0.2);
-        transform: translateY(-2px);
-      }
+        &:focus {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
 
-      &:hover {
-          background: rgba(37, 99, 235, 0.5);
-        transform: translateY(-2px);
-      }
+        &:hover {
+            background: rgba(37, 99, 235, 0.5);
+            transform: translateY(-2px);
+        }
     }
 }
 
 main {
-    display: flex;
-    padding: 2rem 1rem 4rem;
+    display: grid;
+    grid-template-columns: 8fr 3fr;
+    padding: 2rem 1rem;
     margin: 0 auto;
     gap: 10px;
+    width: 100%;
+
+    #svg {
+        max-width: 1200px;
+    }
 }
 
 .button {
@@ -81,12 +93,12 @@ main {
 }
 
 @media (max-width: 900px) {
-  main {
-    flex-direction: column;
-  }
+    main {
+        flex-direction: column;
+    }
 
-  .button {
-    grid-template-columns: 320px 1fr;
-    align-items: center;
-  }
+    .button {
+        grid-template-columns: 320px 1fr;
+        align-items: center;
+    }
 }
