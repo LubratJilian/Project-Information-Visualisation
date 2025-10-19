@@ -140,7 +140,7 @@ function renderTreemap() {
     // Images (thumbnails) pour les feuilles
     nodes.filter(d => d.depth === root.height)
         .append('image')
-        .attr('xlink:href', d => d.data.data?.thumbnail || '')
+        .attr("xlink:href", d => `/proxy?url=${encodeURIComponent(d.data.data?.thumbnail || '')}`)
         .attr('width', d => d.x1 - d.x0)
         .attr('height', d => d.y1 - d.y0)
         .attr('preserveAspectRatio', 'xMidYMid slice')
