@@ -4,14 +4,12 @@
     <meta charset="UTF-8">
     <title>Visualisations interactives avec D3.js</title>
     <link rel="stylesheet" href="index.css">
+    <link rel="stylesheet" href="box/box.css">
 </head>
 <body onload="initPipeline()">
     <header class="hero">
-        <h1>Visualisation d'informations avec D3.js</h1>
-        <p>Ce projet démontre plusieurs techniques de visualisation de données créées avec D3.js. Chaque exemple est
-            auto-contenu et facile à adapter à vos propres jeux de données.</p>
         <nav class="toc">
-            <a href="#treemap">Hiérarchie en boîtes imbriquées</a>
+            <button id="box-btn">Hiérarchie en boîtes imbriquées</button>
             <a href="#bubbles">Bulles proportionnelles</a>
             <a href="#map">Carte interactive</a>
             <a href="#pie">Diagramme circulaire</a>
@@ -19,11 +17,11 @@
         </nav>
     </header>
     <main>
-        <div id="svg">
-
-        </div>
+        <div id="svg"></div>
+        <div id="filter-panel"></div>
     </main>
 </body>
 <script src="index.js" type="module"></script>
+<script src="box/box.js" type="module"></script>
 <script src="./node_modules/d3/dist/d3.min.js"></script>
 </html>
