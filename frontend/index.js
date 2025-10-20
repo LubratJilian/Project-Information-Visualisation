@@ -49,15 +49,13 @@ document.getElementById('applyFilters').addEventListener('click', () => {
     const f = state.filters;
 
     pipeline
-        .filter(d => {
-
+        .filter('filters', d => {
             return (!f.selectedCountry || d.country === f.selectedCountry)
                 && (!f.selectedCategory || d.category === f.selectedCategory)
-                && (+d.subscribers >= f.minSubscribers)
-                && (+d.subscribers <= f.maxSubscribers)
-                && (+d.videos >= f.minVideos)
-                && (new Date(d.date) >= new Date(f.minDate))
-                && (new Date(d.date) <= new Date(f.maxDate));
+                && (+d.subscriber_count >= f.minSubscribers)
+                && (+d.subscriber_count <= f.maxSubscribers) && (+d.video_count >= f.minVideos)
+                && (new Date(d.created_date) >= new Date(f.minDate))
+                && (new Date(d.created_date) <= new Date(f.maxDate));
         })
         .sortBy('subscribers', false)
         .limit('topK', f.topK);

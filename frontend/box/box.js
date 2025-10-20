@@ -21,7 +21,7 @@ function truncateText(textElement, width) {
 }
 
 function prepareHierarchy() {
-    let data = pipeline.data;
+    let data = pipeline.run();
     let hierarchy;
 
     if (!state.selectedCountry) {
