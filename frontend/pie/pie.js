@@ -14,7 +14,8 @@ const svg = d3.select('#chart')
   .append('g')
   .attr('transform', `translate(${width/2},${height/2})`);
 
-const color = d3.scaleOrdinal(d3.schemeTableau10);
+// We'll build a palette dynamically per render depending on number of slices
+let color = d3.scaleOrdinal(d3.schemeTableau10);
 
 const pie = d3.pie().value(d => d.value).sort(null);
 const arc = d3.arc().innerRadius(0).outerRadius(radius);
@@ -31,30 +32,25 @@ const WORLD_KEY = 'Monde';
 function updateBreadcrumb() {
   breadcrumbEl.html('');
   const parts = [];
-  // show world crumb first
   parts.push({label: WORLD_KEY, type: 'world'});
   if (currentCountry && currentCountry !== WORLD_KEY) parts.push({label: currentCountry, type: 'country'});
   if (currentDrillCategory) parts.push({label: currentDrillCategory, type: 'category'});
 
-  // build breadcrumb
   const container = breadcrumbEl.append('div').attr('class', 'crumbs');
   parts.forEach((p, i) => {
     if (i > 0) container.append('span').attr('class','sep').text('›');
     if (p.type === 'world') {
       container.append('button').attr('class','crumb world').text(p.label).on('click', () => {
-        // clicking world returns to aggregated world view
         currentDrillCategory = null;
         renderForCountry(WORLD_KEY);
       });
     } else if (p.type === 'country') {
       container.append('button').attr('class','crumb country').text(p.label).on('click', () => {
-        // clicking country resets drill
         currentDrillCategory = null;
         renderForCountry(p.label);
       });
     } else {
       container.append('button').attr('class','crumb category').text(p.label).on('click', () => {
-        // clicking category returns to category view if already in drill, otherwise drill
         if (currentDrillCategory === p.label) {
           currentDrillCategory = null;
           renderForCountry(currentCountry);
@@ -83,59 +79,7 @@ function parseNumber(v) {
   return Number.isFinite(n) ? n : 0;
 }
 
-d3.csv(CSV_PATH, d => ({
-  channel_name: d.channel_name || '',
-  category: d.category || 'Unknown',
-  country: (d.country || 'Unknown').trim(),
-  view_count: parseNumber(d.view_count)
-})).then(rows => {
-  // Build aggregated map: country -> Map(category -> totalViews)
-  rows.forEach(r => {
-    const country = (r.country || 'Unknown').trim() || 'Unknown';
-    const channelName = (r.channel_name || '').trim() || 'Unknown channel';
-    // A channel can list multiple categories separated by commas. We count the
-    // channel's view_count into each category independently so a channel with
-    // 2 categories contributes to both categories.
-    const rawCats = (r.category || 'Unknown');
-    const cats = rawCats.split(/\s*,\s*/).map(c => c.trim()).filter(c => c.length > 0);
-    if (cats.length === 0) cats.push('Unknown');
-
-    if (!dataByCountry.has(country)) dataByCountry.set(country, new Map());
-    const catMap = dataByCountry.get(country);
-    cats.forEach(cat => {
-      const key = cat || 'Unknown';
-      catMap.set(key, (catMap.get(key) || 0) + r.view_count);
-      // store per-channel breakdown for drilldown
-      if (!dataByCountryCategoryChannels.has(country)) dataByCountryCategoryChannels.set(country, new Map());
-      const byCat = dataByCountryCategoryChannels.get(country);
-      if (!byCat.has(key)) byCat.set(key, new Map());
-      const chMap = byCat.get(key);
-      chMap.set(channelName, (chMap.get(channelName) || 0) + r.view_count);
-    });
-  });
-
-  const countries = Array.from(dataByCountry.keys()).sort();
-  const select = d3.select('#countrySelect');
-  select.selectAll('option').remove();
-  // include a "Monde" option at the top
-  const allCountries = [WORLD_KEY].concat(countries);
-  select.selectAll('option')
-    .data(allCountries)
-    .enter().append('option')
-    .attr('value', d => d)
-    .text(d => d);
-
-  // initial render: Monde (world aggregated)
-  renderForCountry(WORLD_KEY);
-
-  select.on('change', function() {
-    const c = this.value;
-    // switching country resets any drilldown
-    currentDrillCategory = null;
-    renderForCountry(c);
-  });
-});
-
+// Helper: prepare dataset array from a Map(category->value)
 function prepareDataset(catMap) {
   const arr = Array.from(catMap.entries())
     .map(([k, v]) => ({category: k, value: v}))
@@ -183,11 +127,77 @@ function aggregateCategoryChannelsAllCountries(category) {
   return agg;
 }
 
+// Create a palette of n colors using an interpolator (vivid turbo by default)
+function makeColorPalette(n) {
+  if (!n || n <= 0) return [];
+  // use d3.interpolateTurbo and quantize to n steps
+  return d3.quantize(d3.interpolateTurbo, n);
+}
+
+// load CSV and build aggregated maps
+d3.csv(CSV_PATH, d => ({
+  channel_name: d.channel_name || '',
+  category: d.category || 'Unknown',
+  country: (d.country || 'Unknown').trim(),
+  view_count: parseNumber(d.view_count)
+})).then(rows => {
+  rows.forEach(r => {
+    const country = (r.country || 'Unknown').trim() || 'Unknown';
+    const channelName = (r.channel_name || '').trim() || 'Unknown channel';
+    const rawCats = (r.category || 'Unknown');
+    const cats = rawCats.split(/\s*,\s*/).map(c => c.trim()).filter(c => c.length > 0);
+    if (cats.length === 0) cats.push('Unknown');
+
+    if (!dataByCountry.has(country)) dataByCountry.set(country, new Map());
+    const catMap = dataByCountry.get(country);
+    cats.forEach(cat => {
+      const key = cat || 'Unknown';
+      catMap.set(key, (catMap.get(key) || 0) + r.view_count);
+      // store per-channel breakdown for drilldown
+      if (!dataByCountryCategoryChannels.has(country)) dataByCountryCategoryChannels.set(country, new Map());
+      const byCat = dataByCountryCategoryChannels.get(country);
+      if (!byCat.has(key)) byCat.set(key, new Map());
+      const chMap = byCat.get(key);
+      chMap.set(channelName, (chMap.get(channelName) || 0) + r.view_count);
+    });
+  });
+
+  const countries = Array.from(dataByCountry.keys()).sort();
+  const select = d3.select('#countrySelect');
+  select.selectAll('option').remove();
+  const allCountries = [WORLD_KEY].concat(countries);
+  select.selectAll('option')
+    .data(allCountries)
+    .enter().append('option')
+    .attr('value', d => d)
+    .text(d => d);
+
+  // initial render: Monde (world aggregated)
+  renderForCountry(WORLD_KEY);
+
+  select.on('change', function() {
+    const c = this.value;
+    currentDrillCategory = null;
+    renderForCountry(c);
+  });
+});
+
 function renderForCountry(country) {
   currentCountry = country;
   currentDrillCategory = null;
   const catMap = country === WORLD_KEY ? aggregateAllCountriesCatMap() : (dataByCountry.get(country) || new Map());
-  const grouping = getCategoryGrouping(catMap, 10); // top 9 + 'Autres' => 10 items total
+
+  // default grouping: top 9 + Autres => 10 items; if Autres > 50% then expand to 20
+  let grouping = getCategoryGrouping(catMap, 10);
+  const total = d3.sum(prepareDataset(catMap), d => d.value) || 0;
+  const autres = grouping.dataset.find(d => d.category === 'Autres');
+  let extendedMode = false;
+  if (autres && total > 0 && (autres.value / total) > 0.5) {
+    // switch to extended view showing more items
+    grouping = getCategoryGrouping(catMap, 20);
+    extendedMode = true;
+  }
+
   const dataset = grouping.dataset;
   groupedCategoriesByCountry.set(country, grouping.groupedCategories || []);
 
@@ -195,7 +205,9 @@ function renderForCountry(country) {
   const select = d3.select('#countrySelect');
   if (!select.empty()) select.property('value', country);
 
-  color.domain(dataset.map(d => d.category));
+  // rebuild color scale for the dataset size
+  const palette = makeColorPalette(dataset.length || 1);
+  color = d3.scaleOrdinal().domain(dataset.map(d => d.category)).range(palette);
 
   const arcs = pie(dataset);
 
@@ -215,9 +227,7 @@ function renderForCountry(country) {
     .on('mouseover', (event, d) => showTooltip(event, d))
     .on('mouseout', hideTooltip)
     .on('click', (event, d) => {
-      // drill into category
       const cat = d.data.category;
-      // toggle: if already drilled into this category, go back
       if (currentDrillCategory === cat) {
         currentDrillCategory = null;
         renderForCountry(currentCountry);
@@ -227,10 +237,19 @@ function renderForCountry(country) {
       }
     });
 
-  // UPDATE + ENTER
+  // UPDATE + ENTER: ensure fill is updated for both entering and updating arcs
   enter.merge(paths)
+    .attr('fill', d => color(d.data.category))
+    .attr('stroke', '#000')
+    .attr('stroke-width', 0.6)
+    .attr('stroke-linejoin', 'round')
     .transition().duration(600)
     .attrTween('d', arcTween);
+
+  // show chart title, add small badge if extended
+  const titleEl = d3.select('#chartTitle');
+  const titleParts = [country];
+  titleEl.text(titleParts.join(' › ') + (extendedMode ? '  (Mode étendu — 20)' : ''));
 
   renderLegend(dataset);
   updateBreadcrumb();
@@ -239,9 +258,7 @@ function renderForCountry(country) {
 function renderDrillForCategory(country, category) {
   let chMap = new Map();
   if (country === WORLD_KEY) {
-    // drilling on world: aggregate channels across countries
     if (category === 'Autres') {
-      // aggregate across grouped categories for world
       const grouped = groupedCategoriesByCountry.get(WORLD_KEY) || [];
       grouped.forEach(cat => {
         const m = aggregateCategoryChannelsAllCountries(cat) || new Map();
@@ -265,18 +282,23 @@ function renderDrillForCategory(country, category) {
 
   // build dataset from channel map
   const arr = Array.from(chMap.entries()).map(([k,v]) => ({category: k, value: v})).filter(d => d.value > 0).sort((a,b)=>b.value - a.value);
-  // group small channels into 'Autres' if too many
-  let dataset;
+
+  // default grouping for drill: top 9 + Autres => 10 items; allow extension if Autres dominant
+  let datasetObj = {dataset: arr, groupedCategories: []};
   if (arr.length > 10) {
-    const top = arr.slice(0, 9);
-    const others = arr.slice(9).reduce((s,x)=>s+x.value,0);
-    top.push({category: 'Autres', value: others});
-    dataset = top;
-  } else {
-    dataset = arr;
+    datasetObj = getCategoryGrouping(new Map(arr.map(d => [d.category, d.value])), 10);
+    const total = d3.sum(arr, d => d.value) || 0;
+    const autres = datasetObj.dataset.find(d => d.category === 'Autres');
+    if (autres && total > 0 && (autres.value / total) > 0.5) {
+      datasetObj = getCategoryGrouping(new Map(arr.map(d => [d.category, d.value])), 20);
+    }
   }
 
-  color.domain(dataset.map(d => d.category));
+  const dataset = datasetObj.dataset;
+
+  // rebuild palette for channels
+  const palette = makeColorPalette(dataset.length || 1);
+  color = d3.scaleOrdinal().domain(dataset.map(d => d.category)).range(palette);
 
   const arcs = pie(dataset);
 
@@ -291,7 +313,6 @@ function renderDrillForCategory(country, category) {
     .each(function(d) { this._current = d; })
     .on('mouseover', (event, d) => showTooltip(event, d))
     .on('mouseout', hideTooltip)
-    // clicking a channel does nothing special for now; could drill further
     .on('click', (event, d) => {
       // clicking the drill slice toggles back to category view
       currentDrillCategory = null;
@@ -299,10 +320,13 @@ function renderDrillForCategory(country, category) {
     });
 
   enter.merge(paths)
+    .attr('fill', d => color(d.data.category))
+    .attr('stroke', '#000')
+    .attr('stroke-width', 0.6)
+    .attr('stroke-linejoin', 'round')
     .transition().duration(600)
     .attrTween('d', arcTween);
 
-  // update legend to show channels
   renderLegend(dataset, {isDrill: true, title: `Chaînes — ${category} (${country})`});
   updateBreadcrumb();
 }
@@ -321,10 +345,8 @@ function arcTweenExit(a) {
 }
 
 function renderLegend(dataset) {
-  // dataset may be array of {category, value}
   const legend = d3.select('#legend');
   legend.html('');
-  // optional options: {isDrill:boolean, title:string}
   let opts = {};
   if (arguments.length > 1) opts = arguments[1] || {};
   if (opts.title) legend.append('div').attr('class','legend-title').text(opts.title);
@@ -340,14 +362,12 @@ function renderLegend(dataset) {
 // tooltip
 const tooltip = d3.select('body').append('div').attr('class', 'pie-tooltip').style('display','none');
 function showTooltip(event, d) {
-  // compute total from currently bound path data (categories or drill items)
   const bound = svg.selectAll('path').data();
   const total = d3.sum(bound, x => x && x.data ? x.data.value : 0) || 0;
   const pct = total > 0 ? ((d.data.value / total) * 100).toFixed(1) : '0.0';
   const fmt3 = d3.format('.3s');
   tooltip.style('display','block')
     .html(`<strong>${d.data.category}</strong><br>${pct}% — ${fmt3(d.data.value)} vues`);
-  const [mx, my] = d3.pointer(event);
   tooltip.style('left', (event.pageX + 10) + 'px').style('top', (event.pageY + 10) + 'px');
 }
 function hideTooltip() { tooltip.style('display','none'); }
