@@ -1,76 +1,91 @@
 class DataPipeline {
-  constructor(data = []) {
-    this.data = data;    
-    this.operations = [];
-  }
+    constructor(data = []) {
+        this.data = data;
+        this.operations = new Map();
+    }
 
-  async load(path, type) {
-    let raw;
-    if (type === "csv") raw = await d3.csv(path);
-    else throw new Error("Type non supporté : " + type);
-    this.data = raw.features ? raw.features : raw;
-    return this;
-  }
+    async load(path, type) {
+        let raw;
+        if (type === "csv") raw = await d3.csv(path); else throw new Error("Type non supporté : " + type);
+        this.data = raw.features ? raw.features : raw;
+        return this;
+    }
 
-  filter(fn) {
-    this.operations.push(data => d3.filter(data, fn));
-    return this;
-  }
+    addOperation(name, op) {
+        this.operations.set(name, op);
+        return this;
+    }
 
-  map(fn) {
-    this.operations.push(data => data.map(fn));
-    return this;
-  }
+    clearOperations() {
+        this.operations.clear();
+        return this;
+    }
 
-  async joinGeo(geoPath, key, geoKey = key, mergeFn = (a, b) => ({ ...a, ...b })) {
-    const geoData = await d3.json(geoPath);
-    const features = geoData.features || geoData;
-    
-    this.operations.push(data => {
-      const map = d3.index(features, d => d.properties?.[geoKey] || d[geoKey]);
-      return d3.filter(
-        data.map(d => {
-          const match = map.get(d[key]);
-          return match ? mergeFn(d, match) : null;
-        }),
-        Boolean
-      );
-    });
-    return this;
-  }
+    filter(name, fn) {
+        return this.addOperation(name, data => d3.filter(data, fn));
+    }
 
-  sortBy(key, ascending = true) {
-    this.operations.push(data =>
-      d3.sort(data, d => ascending ? d[key] : -d[key])
-    );
-    return this;
-  }
+    limit(name, key) {
+        return this.addOperation(name, data => {
+            if (!Array.isArray(data)) return data;
+            const n = Number(key);
+            if (!Number.isFinite(n) || n <= 0) return [];
+            return data.slice(0, n);
+        });
+    }
 
-  groupBy(key) {
-    this.operations.push(data => d3.group(data, d => d[key]));
-    return this;
-  }
+    map(name, fn) {
+        return this.addOperation(name, data => data.map(fn));
+    }
 
-  aggregate(reducer) {
-    this.operations.push(grouped => {
-      if (!(grouped instanceof Map)) {
-        console.warn("aggregate() doit être appelé après groupBy()");
-        return grouped;
-      }
-      return Array.from(grouped, ([key, values]) => ({
-        key,
-        value: reducer(values)
-      }));
-    });
-    return this;
-  }
+    async joinGeo(name, geoPath, key, geoKey = key, mergeFn = (a, b) => ({...a, ...b})) {
+        const geoData = await d3.json(geoPath);
+        const features = geoData.features || geoData;
+        return this.addOperation(name, data => {
+            const map = d3.index(features, d => d.properties?.[geoKey] || d[geoKey]);
+            return d3.filter(data.map(d => {
+                const match = map.get(d[key]);
+                return match ? mergeFn(d, match) : null;
+            }), Boolean);
+        });
+    }
 
-  run() {
-    return this.operations.reduce((result, op) => op(result), this.data);
-  }
+    sortBy(name, key, ascending = true) {
+        return this.addOperation(name, data => d3.sort(data, d => ascending ? d[key] : -d[key]));
+    }
+
+    groupBy(name, key) {
+        return this.addOperation(name, data => d3.group(data, d => d[key]));
+    }
+
+    aggregate(name, reducer) {
+        return this.addOperation(name, grouped => {
+            if (!(grouped instanceof Map)) {
+                console.warn("aggregate() doit être appelé après groupBy()");
+                return grouped;
+            }
+            return Array.from(grouped, ([key, values]) => ({
+                key, value: reducer(values)
+            }));
+        });
+    }
+
+    run(selected = null) {
+        if (selected !== null && !Array.isArray(selected)) throw new Error("Paramètre 'selected' doit être null ou un tableau de noms");
+
+        let ops;
+        if (selected === null) ops = Array.from(this.operations.values());
+        else ops = selected.map(name => {
+            const op = this.operations.get(name);
+            if (!op) console.warn(`Opération introuvable: ${name}`);
+            return op;
+        }).filter(Boolean);
+
+        return ops.reduce((result, op) => op(result), this.data);
+    }
 }
 
-export default DataPipeline
+export default DataPipeline;
 
 /*
 Exemple d'utilisation:
