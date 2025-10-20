@@ -5,11 +5,7 @@ const state = {
 };
 
 function formatNumber(num) {
-    num = Number(num) || 0;
-    if (num >= 1e9) return (num / 1e9).toFixed(1) + 'B';
-    if (num >= 1e6) return (num / 1e6).toFixed(1) + 'M';
-    if (num >= 1e3) return (num / 1e3).toFixed(1) + 'K';
-    return num.toString();
+    return d3.format(".2s")(num);
 }
 
 function truncateText(textElement, width) {
