@@ -69,14 +69,39 @@ body {
 
 main {
     display: grid;
-    grid-template-columns: 8fr 3fr;
+    grid-template-columns: 1fr auto;
     padding: 2rem 1rem;
     margin: 0 auto;
-    gap: 10px;
+    gap: 1rem;
     width: 100%;
+    transition: grid-template-columns 0.3s ease;
 
     #svg {
-        max-width: 1200px;
+        max-width: 1500px;
+    }
+
+    &.open {
+        grid-template-columns: 8fr 3fr;
+
+        #filter-panel {
+            width: 100%;
+
+            .filter-content {
+                display: flex;
+                flex-direction: column;
+            }
+        }
+    }
+
+    &:not(.open) {
+        grid-template-columns: 1fr auto;
+
+        #filter-panel {
+
+            .filter-content {
+                display: none;
+            }
+        }
     }
 }
 

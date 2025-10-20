@@ -1,8 +1,7 @@
 import pipeline from "../index.js";
 
 const state = {
-    selectedCountry: null,
-    selectedCategory: null
+    selectedCountry: null, selectedCategory: null
 };
 
 function formatNumber(num) {
@@ -13,27 +12,33 @@ function formatNumber(num) {
     return num.toString();
 }
 
+function truncateText(textElement, width) {
+    let text = textElement.text();
+    let maxWidth = width - 8;
+    let textLength = textElement.node().getComputedTextLength();
+
+    while (textLength > maxWidth && text.length > 0) {
+        text = text.slice(0, -1);
+        textElement.text(text + '…');
+        textLength = textElement.node().getComputedTextLength();
+    }
+}
+
 function prepareHierarchy() {
     let data = pipeline.data;
     let hierarchy;
 
     if (!state.selectedCountry) {
-        const countryGroups = Array.from(
-            d3.group(data, d => d.country || 'Unknown'),
-            ([country, channels]) => ({
-                name: country,
-                value: d3.sum(channels, c => +c.subscriber_count || 0),
-                isCountry: true
-            })
-        );
+        const countryGroups = Array.from(d3.group(data, d => d.country || 'Non défini'), ([country, channels]) => ({
+            name: country, value: d3.sum(channels, c => +c.subscriber_count || 0), isCountry: true
+        }));
 
         const top15Countries = countryGroups
             .sort((a, b) => b.value - a.value)
             .slice(0, 15);
 
         hierarchy = {
-            name: "root",
-            children: top15Countries
+            name: "root", children: top15Countries
         };
     } else if (state.selectedCountry && !state.selectedCategory) {
         const countryData = data.filter(d => d.country === state.selectedCountry);
@@ -43,28 +48,21 @@ function prepareHierarchy() {
             const categories = channel.category ? channel.category.split(',').map(c => c.trim()) : ['Unknown'];
             for (const cat of categories) {
                 expandedData.push({
-                    ...channel,
-                    category: cat
+                    ...channel, category: cat
                 });
             }
         }
 
-        const categoryGroups = Array.from(
-            d3.group(expandedData, d => d.category),
-            ([category, channels]) => ({
-                name: category,
-                value: d3.sum(channels, c => +c.subscriber_count || 0),
-                isCategory: true
-            })
-        );
+        const categoryGroups = Array.from(d3.group(expandedData, d => d.category), ([category, channels]) => ({
+            name: category, value: d3.sum(channels, c => +c.subscriber_count || 0), isCategory: true
+        }));
 
         const top15Categories = categoryGroups
             .sort((a, b) => b.value - a.value)
             .slice(0, 15);
 
         hierarchy = {
-            name: "root",
-            children: top15Categories
+            name: "root", children: top15Categories
         };
     } else {
         const categoryData = data
@@ -77,12 +75,8 @@ function prepareHierarchy() {
             .slice(0, 100);
 
         hierarchy = {
-            name: "root",
-            children: categoryData.map(c => ({
-                name: c.channel_name,
-                value: +c.subscriber_count || 1,
-                data: c,
-                isChannel: true
+            name: "root", children: categoryData.map(c => ({
+                name: c.channel_name, value: +c.subscriber_count || 1, data: c, isChannel: true
             }))
         };
     }
@@ -97,13 +91,12 @@ function renderTreemap() {
     container.innerHTML = '';
 
     const rect = container.getBoundingClientRect();
-    const width = rect.width || 1400;
-    const height = rect.height || 600;
+    const width = rect.width;
+    const height = rect.height;
 
     const svg = d3.select('#svg')
         .append('svg')
         .attr('viewBox', `0 0 ${width} ${height}`)
-        .attr('preserveAspectRatio', 'xMidYMid meet')
         .style('width', '100%')
         .style('height', '100%')
         .style('font-family', 'Arial, sans-serif');
@@ -153,7 +146,6 @@ function renderTreemap() {
         .attr("xlink:href", d => `/proxy?url=${encodeURIComponent(d.data.data?.thumbnail || '')}`)
         .attr('width', d => d.x1 - d.x0)
         .attr('height', d => d.y1 - d.y0)
-        .attr('preserveAspectRatio', 'xMidYMid slice')
         .style('opacity', 0.7)
         .style('cursor', 'pointer')
         .on('error', function () {
@@ -183,7 +175,11 @@ function renderTreemap() {
         .attr('font-weight', 'bold')
         .attr('fill', '#fff')
         .style('pointer-events', 'none')
-        .style('text-shadow', '2px 2px 4px rgba(0,0,0,0.8)');
+        .style('text-shadow', '2px 2px 4px rgba(0,0,0,0.8)')
+        .each(function (d) {
+            const width = d.x1 - d.x0;
+            truncateText(d3.select(this), width);
+        });
 
     nodes.filter(d => d.data.isCountry || d.data.isCategory)
         .append('text')
@@ -195,7 +191,11 @@ function renderTreemap() {
         .attr('font-size', '12px')
         .attr('fill', '#fff')
         .style('pointer-events', 'none')
-        .style('text-shadow', '1px 1px 3px rgba(0,0,0,0.8)');
+        .style('text-shadow', '1px 1px 3px rgba(0,0,0,0.8)')
+        .each(function (d) {
+            const width = d.x1 - d.x0;
+            truncateText(d3.select(this), width);
+        });
 }
 
 export {renderTreemap};
