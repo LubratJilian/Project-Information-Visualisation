@@ -6,7 +6,7 @@ class DataPipeline {
 
     async load(path, type) {
         let raw;
-        if (type === "csv") raw = await d3.csv(path); else throw new Error("Type non supporté : " + type);
+        if (type === "csv") raw = await d3.csv(path); else throw new Error("Unsupported data type: " + type);
         this.data = raw.features ? raw.features : raw;
         return this;
     }
@@ -71,13 +71,13 @@ class DataPipeline {
     }
 
     run(selected = null) {
-        if (selected !== null && !Array.isArray(selected)) throw new Error("Paramètre 'selected' doit être null ou un tableau de noms");
+        if (selected !== null && !Array.isArray(selected)) throw new Error("Parameter 'selected' must be an array or null");
 
         let ops;
         if (selected === null) ops = Array.from(this.operations.values());
         else ops = selected.map(name => {
             const op = this.operations.get(name);
-            if (!op) console.warn(`Opération introuvable: ${name}`);
+            if (!op) console.warn(`Operation '${name}' not found`);
             return op;
         }).filter(Boolean);
 
