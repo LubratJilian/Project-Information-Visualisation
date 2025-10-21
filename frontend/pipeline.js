@@ -70,16 +70,14 @@ class DataPipeline {
         });
     }
 
-    run(selected = null) {
-        if (selected !== null && !Array.isArray(selected)) throw new Error("Parameter 'selected' must be an array or null");
+    run(discarded = null) {
+        if (discarded !== null && !Array.isArray(discarded)) throw new Error("Parameter 'discarded' must be an array or null");
 
         let ops;
-        if (selected === null) ops = Array.from(this.operations.values());
-        else ops = selected.map(name => {
-            const op = this.operations.get(name);
-            if (!op) console.warn(`Operation '${name}' not found`);
-            return op;
-        }).filter(Boolean);
+        if (discarded === null) ops = Array.from(this.operations.values());
+        else ops = Array.from(this.operations.entries())
+            .map(([name, op]) => (discarded.includes(name)) ? null : op)
+            .filter(Boolean);
 
         return ops.reduce((result, op) => op(result), this.data);
     }
