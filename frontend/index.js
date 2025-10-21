@@ -4,7 +4,7 @@ import {renderTreemap} from "./box/box.js";
 const pipeline = new DataPipeline();
 
 const state = {
-    visualization: '', filters: {
+    visualization: 'treemap', filters: {
         selectedCountry: null,
         selectedCategory: null,
         minSubscribers: 0,
@@ -36,12 +36,12 @@ const renderers = new Map([['treemap', renderTreemap], ['bubble', renderBubble],
 
 globalThis.initPipeline = function () {
     pipeline.load("data/youtube.csv", "csv").then();
+    renderers.get(state.visualization)();
 };
 
 document.getElementById('box-btn').addEventListener('click', () => {
     state.visualization = 'treemap';
-    const renderer = renderers.get(state.visualization) ?? renderTreemap;
-    renderer();
+    renderers.get(state.visualization)();
 });
 
 document.getElementById('applyFilters').addEventListener('click', () => {
@@ -60,8 +60,7 @@ document.getElementById('applyFilters').addEventListener('click', () => {
         .sortBy('subscribers', false)
         .limit('topK', f.topK);
 
-    const renderer = renderers.get(state.visualization) ?? renderTreemap;
-    renderer();
+    renderers.get(state.visualization)();
 });
 
 const main = document.getElementById("main-layout");
@@ -69,7 +68,7 @@ const toggle = document.getElementById("filter-toggle");
 
 toggle.addEventListener("click", () => {
     main.classList.toggle("open");
-    new Promise(resolve => setTimeout(resolve, 250)).then(() => renderTreemap());
+    new Promise(resolve => setTimeout(resolve, 250)).then(() => renderers.get(state.visualization)());
 });
 
 export default pipeline;
