@@ -4,6 +4,18 @@ import {baseCountryCodeToFullName} from "../utils/utils.js";
 let currentView = 'countries';
 let currentCountry = null;
 
+let videosData = [];
+
+d3.csv('data/youtube_video.csv').then(data => {
+    data.forEach(d => {
+        d.view_count = +d.view_count || 0;
+        d.like_count = +d.like_count || 0;
+        d.comment_count = +d.comment_count || 0;
+    });
+    videosData = data;
+});
+
+
 function createBubbleChart() {
     const container = document.getElementById('svg');
     container.innerHTML = '';
@@ -23,7 +35,14 @@ function createBubbleChart() {
         .attr('class', 'back-button')
         .style('cursor', 'pointer')
         .style('display', 'none')
-        .on('click', () => showCountries());
+        .on('click', () => {
+            if (currentView === 'videos') {
+                showYoutubers(currentCountry);
+            } else if (currentView === 'youtubers') {
+                showCountries();
+            }
+        });
+
 
     backButtonGroup.append('rect')
         .attr('x', 10)
@@ -115,7 +134,7 @@ function createBubbleChart() {
 
         nodes.exit()
             .transition(t)
-            .attr('transform', d => `translate(${width / 2},${height / 2})`)
+            .attr('transform', _ => `translate(${width / 2},${height / 2})`)
             .style('opacity', 0)
             .remove();
 
@@ -206,6 +225,8 @@ function createBubbleChart() {
 
         svg.select('.chart-title').text(`YouTubeurs - ${baseCountryCodeToFullName(country)}`);
 
+        svg.selectAll('.video-node').remove();
+
         const data = pipeline.data.filter(d => d.country === country);
 
         const root = d3.hierarchy({children: data})
@@ -229,7 +250,7 @@ function createBubbleChart() {
 
         nodes.exit()
             .transition(t)
-            .attr('transform', d => `translate(${width / 2},${height / 2})`)
+            .attr('transform', _ => `translate(${width / 2},${height / 2})`)
             .style('opacity', 0)
             .remove();
 
@@ -312,7 +333,7 @@ function createBubbleChart() {
                     .style('left', (event.pageX + 10) + 'px')
                     .style('top', (event.pageY - 10) + 'px');
             })
-            .on('mouseleave', function (event, d) {
+            .on('mouseleave', function (_, __) {
                 d3.select(this).select('circle')
                     .transition()
                     .duration(200)
@@ -320,8 +341,113 @@ function createBubbleChart() {
                     .attr('stroke-width', 1);
 
                 tooltip.style('opacity', 0);
+            })
+            .on('click', function (event, d) {
+                tooltip.style('opacity', 0);
+                showVideos(d.data); // go to videos view
             });
     }
+
+    function showVideos(youtuber) {
+        currentView = 'videos';
+        svg.select('.chart-title').text(`Vidéos - ${youtuber.channel_name}`);
+        svg.select('.back-button').style('display', 'block');
+
+        const data = videosData.filter(v => v.channel_id === youtuber.channel_id);
+        if (data.length === 0) {
+            alert("Aucune vidéo trouvée pour ce YouTubeur.");
+            return;
+        }
+
+        const root = d3.hierarchy({children: data})
+            .sum(d => +d.view_count || 1)
+            .sort((a, b) => b.value - a.value);
+
+        const pack = d3.pack()
+            .size([width, height - 60])
+            .padding(4);
+        pack(root);
+
+        const t = svg.transition().duration(750);
+
+        bubblesGroup.selectAll('g.youtuber-node')
+            .transition(t)
+            .attr('transform', `translate(${width / 2},${height / 2})`)
+            .style('opacity', 0)
+            .remove();
+
+        const nodes = bubblesGroup.selectAll('g.video-node')
+            .data(root.leaves(), d => d.data.video_id);
+
+        nodes.exit().remove();
+
+        const nodesEnter = nodes.enter()
+            .append('g')
+            .attr('class', 'video-node')
+            .attr('transform', `translate(${width / 2},${height / 2})`)
+            .style('cursor', 'pointer')
+            .style('opacity', 0);
+
+        nodesEnter.append('clipPath')
+            .attr('id', d => `clip-video-${d.data.video_id}`)
+            .append('circle')
+            .attr('r', 0);
+
+        nodesEnter.append('image')
+            .attr('xlink:href', d => `/proxy?url=${encodeURIComponent(d.data.thumbnail || '')}`)
+            .attr('clip-path', d => `url(#clip-video-${d.data.video_id})`)
+            .attr('x', d => -d.r)
+            .attr('y', d => -d.r)
+            .attr('width', d => 2 * d.r)
+            .attr('height', d => 2 * d.r)
+            .attr('preserveAspectRatio', 'xMidYMid slice')
+            .attr('opacity', 0.9);
+
+        nodesEnter.append('circle')
+            .attr('r', 0)
+            .attr('fill', 'none')
+            .attr('stroke', '#fff')
+            .attr('stroke-width', 1.5)
+            .attr('opacity', 0.9);
+
+        const nodesUpdate = nodesEnter.merge(nodes);
+
+        nodesUpdate.transition(t)
+            .attr('transform', d => `translate(${d.x},${d.y + 50})`)
+            .style('opacity', 1);
+
+        nodesUpdate.select('circle').transition(t)
+            .attr('r', d => d.r);
+
+        nodesUpdate
+            .on('mouseenter', function (event, d) {
+                d3.select(this).select('circle')
+                    .transition().duration(200)
+                    .attr('stroke-width', 2);
+
+                tooltip
+                    .style('opacity', 1)
+                    .html(`
+                    <strong>${d.data.title}</strong><br/>
+                    Vues: ${(+d.data.view_count).toLocaleString('fr-FR')}<br/>
+                    Likes: ${(+d.data.like_count).toLocaleString('fr-FR')}<br/>
+                    Commentaires: ${(+d.data.comment_count).toLocaleString('fr-FR')}<br/>
+                    Publié: ${d.data.published_date}
+                `)
+                    .style('left', (event.pageX + 10) + 'px')
+                    .style('top', (event.pageY - 10) + 'px');
+            })
+            .on('mousemove', event => {
+                tooltip
+                    .style('left', (event.pageX + 10) + 'px')
+                    .style('top', (event.pageY - 10) + 'px');
+            })
+            .on('mouseleave', () => tooltip.style('opacity', 0))
+            .on('click', (event, d) => {
+                window.open(`https://www.youtube.com/watch?v=${d.data.video_id}`, '_blank');
+            });
+    }
+
 }
 
 function initBubbleChart() {
