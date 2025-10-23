@@ -25,12 +25,16 @@ function init(){
 
   markersCluster=null;
   const ZOOM_THRESHOLD = 5; 
+
+
+  let metricSelector = document.getElementById("metric-selector");
+  metricSelector.classList.remove("hidden")
 }
 
 function renderMap(){
   const container = document.getElementById('svg');
   container.innerHTML = '';
-  
+
   init()  
 
   map = L.map('svg', {
@@ -577,6 +581,11 @@ function drawBarChart(data) {
 }
 
 function clearMap(){
+  let metricSelector = document.getElementById("metric-selector");
+  let sidePanel = document.getElementById("side-panel");
+  metricSelector.classList.add("hidden")
+  sidePanel.classList.add("hidden")
+
   if (map) {
     map.remove(); 
     map=null;
