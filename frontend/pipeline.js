@@ -22,23 +22,6 @@ class DataPipeline {
     return this;
   }
 
-  async joinGeo(geoPath, key, geoKey = key, mergeFn = (a, b) => ({ ...a, ...b })) {
-    const geoData = await d3.json(geoPath);
-    const features = geoData.features || geoData;
-    
-    this.operations.push(data => {
-      const map = d3.index(features, d => d.properties?.[geoKey] || d[geoKey]);
-      return d3.filter(
-        data.map(d => {
-          const match = map.get(d[key]);
-          return match ? mergeFn(d, match) : null;
-        }),
-        Boolean
-      );
-    });
-    return this;
-  }
-
   sortBy(key, ascending = true) {
     this.operations.push(data =>
       d3.sort(data, d => ascending ? d[key] : -d[key])
@@ -51,18 +34,41 @@ class DataPipeline {
     return this;
   }
 
-  aggregate(reducer) {
+  aggregate(reducer, asMap = false) {
     this.operations.push(grouped => {
       if (!(grouped instanceof Map)) {
         console.warn("aggregate() doit être appelé après groupBy()");
         return grouped;
       }
-      return Array.from(grouped, ([key, values]) => ({
-        key,
-        value: reducer(values)
-      }));
+      const entries = Array.from(grouped, ([key, values]) => [key, reducer(values)]);
+      return asMap ? new Map(entries) : entries.map(([key, value]) => ({ key, value }));
     });
     return this;
+  }
+  
+  setPipeline(pipeline){
+    this.operations = pipeline;
+    return this;
+  }
+
+  getPipeline(){
+    return this.operations
+  }
+
+  resetPipeline(){
+    this.operations = [];
+    return this;
+  }
+
+  convertMap(attribut) {
+    this.operations.push(data => {
+      const map = new Map()
+      data.forEach(item => {
+        map.set(item[attribut], item)
+      })
+      return map
+    })
+    return this // Pour chaînage
   }
 
   run() {
@@ -77,7 +83,6 @@ Exemple d'utilisation:
     const pipeline = new DataPipeline();
     await pipeline
     .load("./gdp.csv", "csv")
-    .joinGeo("./countries.geojson", "country_code", "ISO_A3")
     .filter(d => d.gdp > 1000000)
     .sortBy("gdp", false);
 
