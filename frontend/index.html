@@ -4,21 +4,23 @@
     <meta charset="UTF-8">
     <title>Visualisations interactives avec D3.js</title>
     <link rel="stylesheet" href="index.css">
+    <link rel="stylesheet" href="box/box.css">
     <link rel="stylesheet" href="./Map/leaflet.css">
     <link rel="stylesheet" href="./Map/map.css">
 </head>
 <body onload="initPipeline()">
     <header class="hero">
         <nav class="toc">
-            <a href="#treemap">Hiérarchie en boîtes imbriquées</a>
+            <button id="box-btn">Hiérarchie en boîtes imbriquées</button>
             <a href="#bubbles">Bulles proportionnelles</a>
-            <a href="#map">Carte interactive</a>
+            <button id="map-btn">Carte interactive</button>
             <a href="#pie">Diagramme circulaire</a>
             <a href="#histogram">Histogramme</a>
         </nav>
     </header>
     <main>
         <div id="svg">  </div>
+        <div id="filter-panel"></div>
         <div id="metric-selector">
             <label for="metric-choice">Afficher :</label>
             <select id="metric-choice">
@@ -37,6 +39,7 @@
     </main>
 </body>
 <script src="index.js" type="module"></script>
+<script src="box/box.js" type="module"></script>
 <script src="./node_modules/d3/dist/d3.min.js"></script>
 <script src="./node_modules/leaflet/dist/leaflet.js"></script>
 <script src="./Map/map.js" type="module"></script>

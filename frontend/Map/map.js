@@ -1,39 +1,60 @@
 import pipeline from "../index.js";
 
 let geoLayer;
-let previousCountry = undefined;
-let imageLoadTimeouts = [];
-
-let currentMetric = 'avgSubscribers';
+let previousCountry;
+let imageLoadTimeouts;
+let currentMetric;
 let globalStatsCountry;
-let currentMaxValue = 0;
+let currentMaxValue;
 let legendControl;
-let countryNameMap = new Map();
-
+let countryNameMap;
 let markersCluster;
-const ZOOM_THRESHOLD = 5; // Zoom minimum pour afficher les marqueurs
+const ZOOM_THRESHOLD = 5;
+let map; 
 
-const map = L.map('svg', {
-  maxBounds: [[-90, -250], [90, 250]],
-  maxBoundsViscosity: 1.0,
-  worldCopyJump: true,
-  minZoom: 1
-}).setView([20, 0], 2); // [lat, lon], zoom
+function init(){
+  geoLayer=null;
+  previousCountry = undefined;
+  imageLoadTimeouts = [];
 
-// Ajouter un fond de carte OpenStreetMap
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '&copy; OpenStreetMap contributors'
-}).addTo(map);
+  currentMetric = 'avgSubscribers';
+  globalStatsCountry=null;
+  currentMaxValue = 0;
+  legendControl=null;
+  countryNameMap = new Map();
 
-pipeline.load("../data/youtube.csv","csv").then(_ =>{
-  let data = pipeline.run()
+  markersCluster=null;
+  const ZOOM_THRESHOLD = 5; 
+}
 
-  createMap();
+function renderMap(){
+  const container = document.getElementById('svg');
+  container.innerHTML = '';
+  
+  init()  
 
-  d3.csv("./Map/channels_with_coordinates.csv").then(data => {
-    initializeMarkers(data);
+  map = L.map('svg', {
+    maxBounds: [[-90, -250], [90, 250]],
+    maxBoundsViscosity: 1.0,
+    worldCopyJump: true,
+    minZoom: 1
+  }).setView([20, 0], 2); // [lat, lon], zoom
+
+  // Ajouter un fond de carte OpenStreetMap
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+
+  pipeline.load("../data/youtube.csv","csv").then(_ =>{
+    let data = pipeline.run()
+
+    createMap();
+
+    d3.csv("./Map/channels_with_coordinates.csv").then(data => {
+      initializeMarkers(data);
+    })
   })
-})
+}
 
 function getMetricValue(stats, metric) {
   if (!stats) return 0;
@@ -554,3 +575,12 @@ function drawBarChart(data) {
   
   scrollContainer.appendChild(svg.node());
 }
+
+function clearMap(){
+  if (map) {
+    map.remove(); 
+    map=null;
+  }
+}
+
+export {renderMap,clearMap};
