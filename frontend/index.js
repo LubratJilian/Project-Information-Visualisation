@@ -262,28 +262,22 @@ function resetFilters() {
     state.filters = {...defaultFilters};
 
     for (const cb of document.querySelectorAll('.multi-select-items input[type="checkbox"]')) cb.checked = false;
-    for (const el of document.querySelectorAll('.multi-select .selected-text')) {
-        if (el.parentElement.id.includes('country')) el.textContent = 'Tous les pays';
-        if (el.parentElement.id.includes('category')) el.textContent = 'Toutes les catégories';
-    }
 
-    for (const id of ['minSubs', 'maxSubs', 'minVideos', 'maxVideos']) {
-        const slider = document.getElementById(id);
-        document.getElementById(id.replace('min', 'min').replace('max', 'max') + 'Input');
-        if (id.includes('Subs')) {
-            slider.value = state.filters.minSubscribers;
-            document.getElementById('maxSubs').value = state.filters.maxSubscribers;
-            document.getElementById('minSubsInput').value = state.filters.minSubscribers;
-            document.getElementById('maxSubsInput').value = state.filters.maxSubscribers;
-        } else {
-            slider.value = state.filters.minVideos;
-            document.getElementById('maxVideos').value = state.filters.maxVideos;
-            document.getElementById('minVideosInput').value = state.filters.minVideos;
-            document.getElementById('maxVideosInput').value = state.filters.maxVideos;
-        }
-        updateSliderTrack(document.getElementById('minSubs'), document.getElementById('maxSubs'));
-        updateSliderTrack(document.getElementById('minVideos'), document.getElementById('maxVideos'));
-    }
+    document.getElementById('selected-countries').textContent = 'Tous les pays';
+    document.getElementById('selected-categories').textContent = 'Toutes les catégories';
+
+    document.getElementById('minSubs').value = state.filters.minSubscribers;
+    document.getElementById('maxSubs').value = state.filters.maxSubscribers;
+    document.getElementById('minSubsInput').value = state.filters.minSubscribers;
+    document.getElementById('maxSubsInput').value = state.filters.maxSubscribers;
+
+    document.getElementById('minVideos').value = state.filters.minVideos;
+    document.getElementById('maxVideos').value = state.filters.maxVideos;
+    document.getElementById('minVideosInput').value = state.filters.minVideos;
+    document.getElementById('maxVideosInput').value = state.filters.maxVideos;
+
+    updateSliderTrack(document.getElementById('minSubs'), document.getElementById('maxSubs'));
+    updateSliderTrack(document.getElementById('minVideos'), document.getElementById('maxVideos'));
 
     document.getElementById('minDate').value = state.filters.minDate;
     document.getElementById('maxDate').value = state.filters.maxDate;
