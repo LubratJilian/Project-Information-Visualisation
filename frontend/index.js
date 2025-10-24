@@ -4,17 +4,10 @@ import {renderTreemap} from "./box/box.js";
 const pipeline = new DataPipeline();
 
 const state = {
-    visualization: 'treemap', filters: {
-        selectedCountry: null,
-        selectedCategory: null,
-        minSubscribers: 0,
-        maxSubscribers: Infinity,
-        minVideos: 0,
-        minDate: '2005-01-01',
-        maxDate: new Date().toISOString().split('T')[0],
-        topK: 100
-    }
+    visualization: 'treemap', filters: {}
 };
+
+let defaultFilters = {};
 
 function renderBubble() {
     // import this function
@@ -34,10 +27,275 @@ function renderHistogram() {
 
 const renderers = new Map([['treemap', renderTreemap], ['bubble', renderBubble], ['map', renderMap], ['pie', renderPie], ['histogram', renderHistogram]]);
 
-globalThis.initPipeline = function () {
-    pipeline.load("data/youtube.csv", "csv").then();
+async function initPipeline() {
+    await pipeline.load("data/youtube.csv", "csv");
+    initializeFilters(pipeline.run());
     renderers.get(state.visualization)();
-};
+}
+
+function initializeFilters(data) {
+    const countries = [...new Set(data.map(d => d.country))].sort((a, b) => a.localeCompare(b));
+
+    const categories = [...new Set(data.flatMap(d => {
+        if (!d.category) return [];
+        return d.category.split(',').map(cat => cat.trim());
+    }))].sort((a, b) => a.localeCompare(b));
+
+    const subscribers = data.map(d => +d.subscriber_count).filter(n => !Number.isNaN(n));
+    const videos = data.map(d => +d.video_count).filter(n => !Number.isNaN(n));
+
+    const subsMin = Math.min(...subscribers);
+    const subsMax = Math.max(...subscribers);
+    const videosMin = Math.min(...videos);
+    const videosMax = Math.max(...videos);
+
+    populateMultiSelect('countryDropdown', 'countryTrigger', countries, 'selectedCountries', 'pays');
+    populateMultiSelect('categoryDropdown', 'categoryTrigger', categories, 'selectedCategories', 'catégories');
+
+    bindDoubleSlider('minSubs', 'maxSubs', 'minSubsInput', 'maxSubsInput', 'minSubscribers', 'maxSubscribers', subsMin, subsMax);
+    bindDoubleSlider('minVideos', 'maxVideos', 'minVideosInput', 'maxVideosInput', 'minVideos', 'maxVideos', videosMin, videosMax);
+
+    bindInput('minDate', 'minDate');
+    bindInput('maxDate', 'maxDate');
+    bindInput('topK', 'topK', 'number');
+
+    defaultFilters = {
+        selectedCountries: [],
+        selectedCategories: [],
+        minSubscribers: subsMin,
+        maxSubscribers: subsMax,
+        minVideos: videosMin,
+        maxVideos: videosMax,
+        minDate: '2005-01-01',
+        maxDate: new Date().toISOString().split('T')[0],
+        topK: 100
+    };
+
+    state.filters = defaultFilters;
+}
+
+function populateMultiSelect(dropdownId, triggerId, options, stateKey, labelSingular) {
+    const dropdown = document.getElementById(dropdownId);
+    const trigger = document.getElementById(triggerId);
+    const selectedText = trigger.querySelector('.selected-text');
+
+    dropdown.innerHTML = '';
+
+    const searchInput = document.createElement('input');
+    searchInput.type = 'text';
+    searchInput.className = 'multi-select-search';
+    searchInput.placeholder = 'Rechercher...';
+    dropdown.appendChild(searchInput);
+
+    const itemsContainer = document.createElement('div');
+    itemsContainer.className = 'multi-select-items';
+    dropdown.appendChild(itemsContainer);
+
+    for (const option of options) {
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.id = `${dropdownId}-${option}`;
+        checkbox.value = option;
+
+        const label = document.createElement('label');
+        label.htmlFor = checkbox.id;
+        label.textContent = option;
+
+        const item = document.createElement('div');
+        item.className = 'multi-select-item';
+        item.dataset.value = option.toLowerCase();
+        item.appendChild(checkbox);
+        item.appendChild(label);
+
+        checkbox.addEventListener('change', () => {
+            updateMultiSelectState(dropdownId, stateKey, selectedText, labelSingular);
+        });
+
+        itemsContainer.appendChild(item);
+    }
+
+    searchInput.addEventListener('input', (e) => {
+        const searchTerm = e.target.value.toLowerCase();
+        const items = itemsContainer.querySelectorAll('.multi-select-item');
+
+        for (const item of items) {
+            const value = item.dataset.value;
+            if (value.includes(searchTerm)) item.style.display = '';
+            else item.style.display = 'none';
+        }
+    });
+
+    trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        dropdown.classList.toggle('active');
+        if (dropdown.classList.contains('active')) {
+            searchInput.value = '';
+            searchInput.focus();
+            for (const item of itemsContainer.querySelectorAll('.multi-select-item')) {
+                item.style.display = '';
+            }
+        }
+    });
+
+    document.addEventListener('click', () => {
+        dropdown.classList.remove('active');
+    });
+
+    dropdown.addEventListener('click', (e) => {
+        e.stopPropagation();
+    });
+}
+
+function updateMultiSelectState(dropdownId, stateKey, selectedText, labelSingular) {
+    const checkboxes = document.querySelectorAll(`#${dropdownId} input[type="checkbox"]:checked`);
+    const selected = Array.from(checkboxes).map(cb => cb.value);
+
+    state.filters[stateKey] = selected;
+
+    if (selected.length === 0) selectedText.textContent = `Tous les ${labelSingular}`; else if (selected.length === 1) selectedText.textContent = selected[0]; else selectedText.textContent = `${selected.length} ${labelSingular} sélectionné(s)`;
+}
+
+function bindDoubleSlider(minSliderId, maxSliderId, minInputId, maxInputId, minStateKey, maxStateKey, dataMin, dataMax) {
+    const minSlider = document.getElementById(minSliderId);
+    const maxSlider = document.getElementById(maxSliderId);
+    const minInput = document.getElementById(minInputId);
+    const maxInput = document.getElementById(maxInputId);
+
+    const step = Math.max(1, Math.floor((dataMax - dataMin) / 1000));
+
+    minSlider.min = dataMin;
+    minSlider.max = dataMax;
+    minSlider.step = step;
+    minSlider.value = dataMin;
+
+    maxSlider.min = dataMin;
+    maxSlider.max = dataMax;
+    maxSlider.step = step;
+    maxSlider.value = dataMax;
+
+    state.filters[minStateKey] = dataMin;
+    state.filters[maxStateKey] = dataMax;
+
+    minSlider.addEventListener('input', () => {
+        let minVal = Number.parseInt(minSlider.value);
+        let maxVal = Number.parseInt(maxSlider.value);
+
+        if (minVal > maxVal) {
+            minSlider.value = maxVal;
+            minVal = maxVal;
+        }
+
+        minInput.value = minVal;
+        state.filters[minStateKey] = minVal;
+        updateSliderTrack(minSlider, maxSlider);
+    });
+
+    maxSlider.addEventListener('input', () => {
+        let minVal = Number.parseInt(minSlider.value);
+        let maxVal = Number.parseInt(maxSlider.value);
+
+        if (maxVal < minVal) {
+            maxSlider.value = minVal;
+            maxVal = minVal;
+        }
+
+        maxInput.value = maxVal;
+        state.filters[maxStateKey] = maxVal;
+        updateSliderTrack(minSlider, maxSlider);
+    });
+
+    minInput.addEventListener('input', () => {
+        let minVal = Number.parseInt(minInput.value) || dataMin;
+        let maxVal = Number.parseInt(maxSlider.value);
+
+        if (minVal > maxVal) minVal = maxVal;
+        if (minVal < dataMin) minVal = dataMin;
+        if (minVal > dataMax) minVal = dataMax;
+
+        minSlider.value = minVal;
+        minInput.value = minVal;
+        state.filters[minStateKey] = minVal;
+        updateSliderTrack(minSlider, maxSlider);
+    });
+
+    maxInput.addEventListener('input', () => {
+        let minVal = Number.parseInt(minSlider.value);
+        let maxVal = Number.parseInt(maxInput.value) || dataMax;
+
+        if (maxVal < minVal) maxVal = minVal;
+        if (maxVal < dataMin) maxVal = dataMin;
+        if (maxVal > dataMax) maxVal = dataMax;
+
+        maxSlider.value = maxVal;
+        maxInput.value = maxVal;
+        state.filters[maxStateKey] = maxVal;
+        updateSliderTrack(minSlider, maxSlider);
+    });
+
+    minInput.value = minSlider.value;
+    maxInput.value = maxSlider.value;
+    updateSliderTrack(minSlider, maxSlider);
+}
+
+function updateSliderTrack(minSlider, maxSlider) {
+    const min = Number.parseInt(minSlider.value);
+    const max = Number.parseInt(maxSlider.value);
+    const rangeMin = Number.parseInt(minSlider.min);
+    const rangeMax = Number.parseInt(minSlider.max);
+
+    const percentMin = ((min - rangeMin) / (rangeMax - rangeMin)) * 100;
+    const percentMax = ((max - rangeMin) / (rangeMax - rangeMin)) * 100;
+
+    const container = minSlider.parentElement;
+    container.style.setProperty('--min-percent', `${percentMin}%`);
+    container.style.setProperty('--max-percent', `${percentMax}%`);
+}
+
+function bindInput(inputId, stateKey, type = 'string') {
+    const input = document.getElementById(inputId);
+    input.addEventListener('input', () => {
+        state.filters[stateKey] = type === 'number' ? Number.parseInt(input.value) : input.value;
+    });
+}
+
+function resetFilters() {
+    state.filters = {...defaultFilters};
+
+    for (const cb of document.querySelectorAll('.multi-select-items input[type="checkbox"]')) cb.checked = false;
+    for (const el of document.querySelectorAll('.multi-select .selected-text')) {
+        if (el.parentElement.id.includes('country')) el.textContent = 'Tous les pays';
+        if (el.parentElement.id.includes('category')) el.textContent = 'Toutes les catégories';
+    }
+
+    for (const id of ['minSubs', 'maxSubs', 'minVideos', 'maxVideos']) {
+        const slider = document.getElementById(id);
+        document.getElementById(id.replace('min', 'min').replace('max', 'max') + 'Input');
+        if (id.includes('Subs')) {
+            slider.value = state.filters.minSubscribers;
+            document.getElementById('maxSubs').value = state.filters.maxSubscribers;
+            document.getElementById('minSubsInput').value = state.filters.minSubscribers;
+            document.getElementById('maxSubsInput').value = state.filters.maxSubscribers;
+        } else {
+            slider.value = state.filters.minVideos;
+            document.getElementById('maxVideos').value = state.filters.maxVideos;
+            document.getElementById('minVideosInput').value = state.filters.minVideos;
+            document.getElementById('maxVideosInput').value = state.filters.maxVideos;
+        }
+        updateSliderTrack(document.getElementById('minSubs'), document.getElementById('maxSubs'));
+        updateSliderTrack(document.getElementById('minVideos'), document.getElementById('maxVideos'));
+    }
+
+    document.getElementById('minDate').value = state.filters.minDate;
+    document.getElementById('maxDate').value = state.filters.maxDate;
+    document.getElementById('topK').value = state.filters.topK;
+
+    pipeline.clearOperations();
+    renderers.get(state.visualization)();
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+    await initPipeline();
+});
 
 document.getElementById('box-btn').addEventListener('click', () => {
     state.visualization = 'treemap';
@@ -49,25 +307,29 @@ document.getElementById('applyFilters').addEventListener('click', () => {
     const f = state.filters;
 
     pipeline
-        .filter('filters', d => {
-            return (!f.selectedCountry || d.country === f.selectedCountry)
-                && (!f.selectedCategory || d.category === f.selectedCategory)
-                && (+d.subscriber_count >= f.minSubscribers)
-                && (+d.subscriber_count <= f.maxSubscribers) && (+d.video_count >= f.minVideos)
-                && (new Date(d.created_date) >= new Date(f.minDate))
-                && (new Date(d.created_date) <= new Date(f.maxDate));
+        .filter('countryFilter', d => !f.selectedCountries?.length || f.selectedCountries.includes(d.country))
+        .filter('categoryFilter', d => {
+            if (!f.selectedCategories?.length) return true;
+            const channelCategories = new Set(d.category.split(',').map(cat => cat.trim()));
+            return f.selectedCategories.some(selected => channelCategories.has(selected));
         })
-        .sortBy('subscribers', false)
+        .filter('subscriberFilter', d => +d.subscriber_count >= f.minSubscribers && +d.subscriber_count <= f.maxSubscribers)
+        .filter('videoFilter', d => +d.video_count >= f.minVideos && +d.video_count <= f.maxVideos)
+        .filter('dateFilter', d => new Date(d.created_date) >= new Date(f.minDate) && new Date(d.created_date) <= new Date(f.maxDate))
+        .sortBy('sortBy', 'subscriber_count', false)
         .limit('topK', f.topK);
 
     renderers.get(state.visualization)();
 });
 
-const main = document.getElementById("main-layout");
-const toggle = document.getElementById("filter-toggle");
+document.getElementById('resetFilters').addEventListener('click', () => {
+    pipeline.clearOperations();
+    resetFilters();
+    renderers.get(state.visualization)();
+});
 
-toggle.addEventListener("click", () => {
-    main.classList.toggle("open");
+document.getElementById("filter-toggle").addEventListener("click", () => {
+    document.getElementById("main-layout").classList.toggle("open");
     new Promise(resolve => setTimeout(resolve, 250)).then(() => renderers.get(state.visualization)());
 });
 
