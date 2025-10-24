@@ -120,8 +120,7 @@ function populateMultiSelect(dropdownId, triggerId, options, stateKey, labelSing
 
         for (const item of items) {
             const value = item.dataset.value;
-            if (value.includes(searchTerm)) item.style.display = '';
-            else item.style.display = 'none';
+            if (value.includes(searchTerm)) item.style.display = ''; else item.style.display = 'none';
         }
     });
 
@@ -155,6 +154,19 @@ function updateMultiSelectState(dropdownId, stateKey, selectedText, labelSingula
     if (selected.length === 0) selectedText.textContent = `Tous les ${labelSingular}`; else if (selected.length === 1) selectedText.textContent = selected[0]; else selectedText.textContent = `${selected.length} ${labelSingular} sélectionné(s)`;
 }
 
+function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+}
+
+function updateDoubleSlider(minSlider, maxSlider, minInput, maxInput, minStateKey, maxStateKey) {
+    let minVal = Number.parseInt(minSlider.value);
+    let maxVal = Number.parseInt(maxSlider.value);
+
+    state.filters[minStateKey] = minVal;
+    state.filters[maxStateKey] = maxVal;
+    updateSliderTrack(minSlider, maxSlider);
+}
+
 function bindDoubleSlider(minSliderId, maxSliderId, minInputId, maxInputId, minStateKey, maxStateKey, dataMin, dataMax) {
     const minSlider = document.getElementById(minSliderId);
     const maxSlider = document.getElementById(maxSliderId);
@@ -163,77 +175,39 @@ function bindDoubleSlider(minSliderId, maxSliderId, minInputId, maxInputId, minS
 
     const step = Math.max(1, Math.floor((dataMax - dataMin) / 1000));
 
-    minSlider.min = dataMin;
-    minSlider.max = dataMax;
-    minSlider.step = step;
-    minSlider.value = dataMin;
+    minSlider.min = maxSlider.min = dataMin;
+    minSlider.max = maxSlider.max = dataMax;
+    minSlider.step = maxSlider.step = step;
 
-    maxSlider.min = dataMin;
-    maxSlider.max = dataMax;
-    maxSlider.step = step;
-    maxSlider.value = dataMax;
-
-    state.filters[minStateKey] = dataMin;
-    state.filters[maxStateKey] = dataMax;
+    minSlider.value = minInput.value = state.filters[minStateKey] = dataMin;
+    maxSlider.value = maxInput.value = state.filters[maxStateKey] = dataMax;
 
     minSlider.addEventListener('input', () => {
-        let minVal = Number.parseInt(minSlider.value);
-        let maxVal = Number.parseInt(maxSlider.value);
-
-        if (minVal > maxVal) {
-            minSlider.value = maxVal;
-            minVal = maxVal;
-        }
-
-        minInput.value = minVal;
-        state.filters[minStateKey] = minVal;
-        updateSliderTrack(minSlider, maxSlider);
+        minInput.value = minSlider.value;
+        updateDoubleSlider(minSlider, maxSlider, minInput, maxInput, minStateKey, maxStateKey);
     });
 
     maxSlider.addEventListener('input', () => {
-        let minVal = Number.parseInt(minSlider.value);
-        let maxVal = Number.parseInt(maxSlider.value);
-
-        if (maxVal < minVal) {
-            maxSlider.value = minVal;
-            maxVal = minVal;
-        }
-
-        maxInput.value = maxVal;
-        state.filters[maxStateKey] = maxVal;
-        updateSliderTrack(minSlider, maxSlider);
+        maxInput.value = maxSlider.value;
+        updateDoubleSlider(minSlider, maxSlider, minInput, maxInput, minStateKey, maxStateKey);
     });
 
-    minInput.addEventListener('input', () => {
-        let minVal = Number.parseInt(minInput.value) || dataMin;
-        let maxVal = Number.parseInt(maxSlider.value);
-
-        if (minVal > maxVal) minVal = maxVal;
-        if (minVal < dataMin) minVal = dataMin;
-        if (minVal > dataMax) minVal = dataMax;
-
-        minSlider.value = minVal;
-        minInput.value = minVal;
-        state.filters[minStateKey] = minVal;
-        updateSliderTrack(minSlider, maxSlider);
+    minInput.addEventListener('change', () => {
+        let val = Number.parseInt(minInput.value);
+        if (Number.isNaN(val)) val = dataMin;
+        val = clamp(val, dataMin, Number.parseInt(maxSlider.value));
+        minInput.value = minSlider.value = val;
+        updateDoubleSlider(minSlider, maxSlider, minInput, maxInput, minStateKey, maxStateKey);
     });
 
-    maxInput.addEventListener('input', () => {
-        let minVal = Number.parseInt(minSlider.value);
-        let maxVal = Number.parseInt(maxInput.value) || dataMax;
-
-        if (maxVal < minVal) maxVal = minVal;
-        if (maxVal < dataMin) maxVal = dataMin;
-        if (maxVal > dataMax) maxVal = dataMax;
-
-        maxSlider.value = maxVal;
-        maxInput.value = maxVal;
-        state.filters[maxStateKey] = maxVal;
-        updateSliderTrack(minSlider, maxSlider);
+    maxInput.addEventListener('change', () => {
+        let val = Number.parseInt(maxInput.value);
+        if (Number.isNaN(val)) val = dataMax;
+        val = clamp(val, Number.parseInt(minSlider.value), dataMax);
+        maxInput.value = maxSlider.value = val;
+        updateDoubleSlider(minSlider, maxSlider, minInput, maxInput, minStateKey, maxStateKey);
     });
 
-    minInput.value = minSlider.value;
-    maxInput.value = maxSlider.value;
     updateSliderTrack(minSlider, maxSlider);
 }
 
@@ -253,9 +227,7 @@ function updateSliderTrack(minSlider, maxSlider) {
 
 function bindInput(inputId, stateKey, type = 'string') {
     const input = document.getElementById(inputId);
-    input.addEventListener('input', () => {
-        state.filters[stateKey] = type === 'number' ? Number.parseInt(input.value) : input.value;
-    });
+    input.addEventListener('input', () => state.filters[stateKey] = type === 'number' ? Number.parseInt(input.value) : input.value);
 }
 
 function resetFilters() {
