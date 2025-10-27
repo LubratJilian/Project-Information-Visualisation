@@ -68,7 +68,7 @@ function initializeFilters(data) {
         topK: 100
     };
 
-    state.filters = defaultFilters;
+    state.filters = {...defaultFilters};
 }
 
 function populateMultiSelect(dropdownId, triggerId, options, stateKey, labelSingular) {

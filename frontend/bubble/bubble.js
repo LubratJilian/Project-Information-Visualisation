@@ -354,6 +354,8 @@ function showVideos() {
     let youtuber = currentYoutuber;
     currentView = 'videos';
 
+    svg.select('.back-button').style('display', 'block');
+
     const data = videosData.filter(v => v.channel_id === youtuber.channel_id);
     if (data.length === 0) {
         alert("Aucune vidéo trouvée pour ce YouTubeur.");
