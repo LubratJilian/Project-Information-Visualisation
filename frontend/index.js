@@ -1,6 +1,6 @@
 import DataPipeline from "./pipeline.js";
 import {renderTreemap} from "./box/box.js";
-import {initBubbleChart} from "./bubble/bubble.js";
+import {renderBubbleChart} from "./bubble/bubble.js";
 
 const pipeline = new DataPipeline();
 
@@ -9,10 +9,6 @@ const state = {
 };
 
 let defaultFilters = {};
-
-function renderBubble() {
-    // import this function
-}
 
 function renderMap() {
     // import this function
@@ -26,7 +22,7 @@ function renderHistogram() {
     // import this function
 }
 
-const renderers = new Map([['treemap', renderTreemap], ['bubble', renderBubble], ['map', renderMap], ['pie', renderPie], ['histogram', renderHistogram]]);
+const renderers = new Map([['treemap', renderTreemap], ['bubble', renderBubbleChart], ['map', renderMap], ['pie', renderPie], ['histogram', renderHistogram]]);
 
 async function initPipeline() {
     await pipeline.load("data/youtube.csv", "csv");
@@ -269,6 +265,11 @@ document.getElementById('box-btn').addEventListener('click', () => {
     renderers.get(state.visualization)();
 });
 
+document.getElementById('bubbles-btn').addEventListener('click', () => {
+    state.visualization = 'bubble';
+    renderers.get(state.visualization)();
+});
+
 document.getElementById('applyFilters').addEventListener('click', () => {
     pipeline.clearOperations();
     const f = state.filters;
@@ -298,10 +299,6 @@ document.getElementById('resetFilters').addEventListener('click', () => {
 document.getElementById("filter-toggle").addEventListener("click", () => {
     document.getElementById("main-layout").classList.toggle("open");
     new Promise(resolve => setTimeout(resolve, 250)).then(() => renderers.get(state.visualization)());
-});
-
-document.getElementById('bubbles-btn').addEventListener("click", () => {
-    initBubbleChart();
 });
 
 export default pipeline;

@@ -4,10 +4,11 @@
  * @author G2
  */
 class DataPipeline {
-  /**
+    /**
      * Initialize the DataPipeline with optional initial data.
      * @param data
-     */  constructor(data = []) {
+     */
+    constructor(data = []) {
         this.data = data;
         this.operations = new Map();
     }
@@ -17,7 +18,8 @@ class DataPipeline {
      * @param path {string}
      * @param type {string}
      * @returns {Promise<DataPipeline>} The DataPipeline instance for chaining.
-     */async load(path, type) {
+     */
+    async load(path, type) {
         let raw;
         if (type === "csv") raw = await d3.csv(path);
         else throw new Error("Unsupported data type : " + type);
@@ -89,11 +91,11 @@ class DataPipeline {
      * @param mergeFn {function}
      * @returns {Promise<DataPipeline>} The DataPipeline instance for chaining.
      */
-    async joinGeo(name,geoPath, key, geoKey = key, mergeFn = (a, b) => ({...a, ...b})) {
+    async joinGeo(name, geoPath, key, geoKey = key, mergeFn = (a, b) => ({...a, ...b})) {
         const geoData = await d3.json(geoPath);
         const features = geoData.features || geoData;
 
-       return this.addOperation(name,data => {
+        return this.addOperation(name, data => {
             const map = d3.index(features, d => d.properties?.[geoKey] || d[geoKey]);
             return d3.filter(
                 data.map(d => {
@@ -101,8 +103,8 @@ class DataPipeline {
                     return match ? mergeFn(d, match) : null;
                 }),
                 Boolean);
-            });
-        }
+        });
+    }
 
     /**
      * Sort data by the specified key.
@@ -111,10 +113,9 @@ class DataPipeline {
      * @param ascending {boolean} Whether to sort in ascending order. Default is true.
      * @returns {DataPipeline} The DataPipeline instance for chaining.
      */
-    sortBy(name,key, ascending = true) {
-        return this.addOperation(name,data =>
+    sortBy(name, key, ascending = true) {
+        return this.addOperation(name, data =>
             d3.sort(data, d => ascending ? d[key] : -d[key]));
-
     }
 
     /**
@@ -123,9 +124,8 @@ class DataPipeline {
      * @param key {string} Key to group by.
      * @returns {DataPipeline} The DataPipeline instance for chaining.
      */
-    groupBy(name,key) {
-        return this.addOperation(name,data => d3.group(data, d => d[key]));
-
+    groupBy(name, key) {
+        return this.addOperation(name, data => d3.group(data, d => d[key]));
     }
 
     /**
@@ -134,8 +134,8 @@ class DataPipeline {
      * @param reducer {function} Function to reduce the grouped values.
      * @returns {DataPipeline} The DataPipeline instance for chaining.
      */
-    aggregate(name,reducer) {
-        return this.addOperation(name,grouped => {
+    aggregate(name, reducer) {
+        return this.addOperation(name, grouped => {
             if (!(grouped instanceof Map)) {
                 console.warn("aggregate() doit être appelé après groupBy()");
                 return grouped;
@@ -150,7 +150,7 @@ class DataPipeline {
 
     /**
      * Execute the pipeline, optionally discarding some operations.
-        * @param discarded {string[]|null} Names of operations to discard. If null, all operations are applied.
+     * @param discarded {string[]|null} Names of operations to discard. If null, all operations are applied.
      * @returns {any} The processed data after applying the pipeline operations.
      */
     run(discarded = null) {
