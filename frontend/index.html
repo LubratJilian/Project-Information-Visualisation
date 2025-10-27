@@ -6,7 +6,7 @@
     <link rel="stylesheet" href="index.css">
     <link rel="stylesheet" href="box/box.css">
 </head>
-<body onload="initPipeline()">
+<body>
     <header class="hero">
         <nav class="toc">
             <button id="box-btn">Hiérarchie en boîtes imbriquées</button>
@@ -16,9 +16,64 @@
             <a href="#histogram">Histogramme</a>
         </nav>
     </header>
-    <main>
+    <main id="main-layout">
         <div id="svg"></div>
-        <div id="filter-panel"></div>
+        <div id="filter-panel">
+            <div id="filter-toggle">Filtre</div>
+            <div class="filter-content">
+                <label for="countryDropdown">Pays :</label>
+                <div class="multi-select-container">
+                    <button class="multi-select-trigger" id="countryTrigger">
+                        <span class="selected-text" id="selected-countries">Tous les pays</span>
+                        <span class="arrow">▼</span>
+                    </button>
+                    <div class="multi-select-dropdown" id="countryDropdown"></div>
+                </div>
+
+                <label for="categoryDropdown">Catégories :</label>
+                <div class="multi-select-container">
+                    <button class="multi-select-trigger" id="categoryTrigger">
+                        <span class="selected-text" id="selected-categories">Toutes les catégories</span>
+                        <span class="arrow">▼</span>
+                    </button>
+                    <div class="multi-select-dropdown" id="categoryDropdown"></div>
+                </div>
+
+                <label>Nombre d'abonnés :</label>
+                <div class="double-slider">
+                    <input type="range" id="minSubs" min="0" max="10000000" step="10000" value="0">
+                    <input type="range" id="maxSubs" min="0" max="10000000" step="10000" value="10000000">
+                </div>
+                <div class="range-inputs">
+                    <input type="number" id="minSubsInput" placeholder="Min">
+                    <span>-</span>
+                    <input type="number" id="maxSubsInput" placeholder="Max">
+                </div>
+
+                <label>Nombre de vidéos :</label>
+                <div class="double-slider">
+                    <input type="range" id="minVideos" min="0" max="10000" step="10" value="0">
+                    <input type="range" id="maxVideos" min="0" max="10000" step="10" value="10000">
+                </div>
+                <div class="range-inputs">
+                    <input type="number" id="minVideosInput" placeholder="Min">
+                    <span>-</span>
+                    <input type="number" id="maxVideosInput" placeholder="Max">
+                </div>
+
+                <label for="minDate">Date de création min :</label>
+                <input type="date" id="minDate" value="2005-01-01">
+
+                <label for="maxDate">Date de création max :</label>
+                <input type="date" id="maxDate" value="2025-12-31">
+
+                <label for="topK">Top K :</label>
+                <input type="number" id="topK" min="1" max="100" value="15">
+
+                <button id="applyFilters">Appliquer les filtres</button>
+                <button id="resetFilters">Annuler les filtres</button>
+            </div>
+        </div>
     </main>
 </body>
 <script src="index.js" type="module"></script>
