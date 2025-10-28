@@ -220,6 +220,8 @@ function showCountries() {
 }
 
 function showYoutubers(country) {
+    pipeline.addOperation('countryFilter', data => data.filter(d => d.country === country));
+
     const pipelineData = pipeline.run();
     currentView = 'youtubers';
     currentCountry = country;
@@ -228,9 +230,7 @@ function showYoutubers(country) {
     svg.select('.chart-title').text(`YouTubeurs - ${baseCountryCodeToFullName(country)}`);
     svg.selectAll('.video-node').remove();
 
-    const data = pipelineData.filter(d => d.country === country);
-
-    const root = d3.hierarchy({children: data})
+    const root = d3.hierarchy({children: pipelineData})
         .sum(d => +d.subscriber_count || 1)
         .sort((a, b) => b.value - a.value);
 
@@ -457,10 +457,9 @@ function renderBubbleChart() {
     initializeSVG();
     if (currentView === 'countries')
         showCountries();
-    else if (currentView === 'youtubers') {
-        console.log('currentCountry', currentCountry);
+    else if (currentView === 'youtubers')
         showYoutubers(currentCountry);
-    } else
+    else
         showVideos();
 }
 
