@@ -221,6 +221,11 @@ function showCountries() {
 
 function showYoutubers(country) {
     pipeline.addOperation('countryFilter', data => data.filter(d => d.country === country));
+    document.querySelectorAll(".multi-select-item").forEach(item => {
+        if (item.textContent === country) {
+            item.querySelector("input").checked = true;
+        }
+    });
 
     const pipelineData = pipeline.run();
     currentView = 'youtubers';
