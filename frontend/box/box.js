@@ -113,8 +113,9 @@ function prepareHierarchy() {
         hierarchy = {
             name: "root", children: allCountries
         };
+        console.log(hierarchy);
     } else if (state.selectedCountry && !state.selectedCategory) {
-        const countryData = data.filter(d => d.country === state.selectedCountry);
+        const countryData = data.filter(d => (d.country || 'Non défini') === state.selectedCountry);
 
         const expandedData = [];
         for (const channel of countryData) {
@@ -139,7 +140,7 @@ function prepareHierarchy() {
     } else {
         const categoryData = data
             .filter(d => {
-                if (d.country !== state.selectedCountry) return false;
+                if ((d.country || 'Non défini') !== state.selectedCountry) return false;
                 const categories = d.category ? d.category.split(',').map(c => c.trim()) : [];
                 return categories.includes(state.selectedCategory);
             })
@@ -235,9 +236,7 @@ function renderTreemap() {
         .attr('width', 0)
         .attr('height', 0)
         .style('opacity', 0.7)
-        .on('error', function () {
-            d3.select(this).remove();
-        });
+        .on('error', () => d3.select(this).remove());
 
     nodesEnter.filter(d => d.data.isChannel)
         .append('rect')
@@ -360,7 +359,7 @@ function renderTreemap() {
                 for (const cb of checkboxes) if (cb.checked) state.countriesSelected.push(cb.parentElement.textContent);
 
                 state.selectedCountry = d.data.name;
-                pipeline.addOperation('countryFilter', data => data.filter(item => item.country === state.selectedCountry));
+                pipeline.addOperation('countryFilter', data => data.filter(item => (item.country || 'Non défini') === state.selectedCountry));
 
                 for (const item of document.querySelectorAll(".multi-select-item")) item.querySelector("input").checked = item.textContent === state.selectedCountry;
                 updateMultiSelectDisplay([state.selectedCountry]);
