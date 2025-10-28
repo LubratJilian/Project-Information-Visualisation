@@ -5,6 +5,7 @@ let currentView = 'countries';
 let currentCountry = null;
 let currentYoutuber = null;
 let videosData = [];
+let countriesSelected = []
 
 let svg;
 let bubblesGroup;
@@ -95,8 +96,22 @@ function initializeSVG() {
 function handleBackButtonClick() {
     if (currentView === 'videos')
         showYoutubers(currentCountry);
-    else if (currentView === 'youtubers')
+    else if (currentView === 'youtubers') {
+        if (countriesSelected.length > 0) {
+            pipeline.addOperation('countryFilter', data => data.filter(d => countriesSelected.includes(d.country)));
+            document.querySelectorAll(".multi-select-item").forEach(item => {
+                if (countriesSelected.includes(item.textContent))
+                    item.querySelector("input").checked = true;
+            });
+            pipeline.run();
+        } else {
+            pipeline.removeOperation("countryFilter");
+            document.querySelectorAll(".multi-select-items input[type=\"checkbox\"]").forEach(cb => {
+                cb.checked = false;
+            });
+        }
         showCountries();
+    }
 }
 
 function showCountries() {
@@ -215,6 +230,9 @@ function showCountries() {
         })
         .on('click', (event, d) => {
             tooltip.style('opacity', 0);
+            countriesSelected = [];
+            for (const cb of document.querySelectorAll('.multi-select-items input[type="checkbox"]')) if (cb.checked)
+                countriesSelected.push(cb.parentElement.textContent);
             showYoutubers(d.data.country);
         });
 }
@@ -222,9 +240,8 @@ function showCountries() {
 function showYoutubers(country) {
     pipeline.addOperation('countryFilter', data => data.filter(d => d.country === country));
     document.querySelectorAll(".multi-select-item").forEach(item => {
-        if (item.textContent === country) {
+        if (item.textContent === country)
             item.querySelector("input").checked = true;
-        }
     });
 
     const pipelineData = pipeline.run();
@@ -239,9 +256,8 @@ function showYoutubers(country) {
         .sum(d => +d.subscriber_count || 1)
         .sort((a, b) => b.value - a.value);
 
-    if (root.children.length > 200) {
+    if (root.children.length > 200)
         root.children = root.children.slice(0, 200);
-    }
 
     const pack = d3.pack()
         .size([width, height - 60])

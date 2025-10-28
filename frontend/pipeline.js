@@ -39,6 +39,16 @@ class DataPipeline {
     }
 
     /**
+     * Remove an operation from the pipeline by name.
+     * @param name {string}
+     * @returns {DataPipeline} The DataPipeline instance for chaining.
+     */
+    removeOperation(name) {
+        this.operations.delete(name);
+        return this;
+    }
+
+    /**
      * Clear all operations from the pipeline.
      * @returns {DataPipeline} The DataPipeline instance for chaining.
      */
