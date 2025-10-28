@@ -2,9 +2,8 @@ import pipeline from "../index.js";
 import {formatNumber, truncateText, updateMultiSelectDisplay} from "../utils/utils.js";
 
 const state = {
-    selectedCountry: null, selectedCategory: null, countriesSelected: []
+    selectedCountry: null, selectedCategory: null, countriesSelected: [], isInitialized: false
 };
-
 let svg;
 let tooltip;
 let width;
@@ -84,19 +83,17 @@ function initializeSVG() {
         .attr('class', 'treemap-group')
         .attr('transform', 'translate(0, 50)');
 
-    if (!tooltip) {
-        tooltip = d3.select('body').append('div')
-            .attr('class', 'treemap-tooltip')
-            .style('position', 'absolute')
-            .style('padding', '10px')
-            .style('background', 'rgba(0, 0, 0, 0.8)')
-            .style('color', 'white')
-            .style('border-radius', '5px')
-            .style('pointer-events', 'none')
-            .style('opacity', 0)
-            .style('font-size', '12px')
-            .style('z-index', '1000');
-    }
+    if (!tooltip) tooltip = d3.select('body').append('div')
+        .attr('class', 'treemap-tooltip')
+        .style('position', 'absolute')
+        .style('padding', '10px')
+        .style('background', 'rgba(0, 0, 0, 0.8)')
+        .style('color', 'white')
+        .style('border-radius', '5px')
+        .style('pointer-events', 'none')
+        .style('opacity', 0)
+        .style('font-size', '12px')
+        .style('z-index', '1000');
 }
 
 function prepareHierarchy() {
@@ -192,9 +189,12 @@ function renderTreemap() {
     const colorScale = d3.scaleOrdinal(d3.schemeTableau10);
     const treemapGroup = svg.select('.treemap-group');
 
+    const transitionDuration = state.isInitialized ? 600 : 0;
+    state.isInitialized = true;
+
     const transitionName = 'treemap-morph';
     const t = svg.transition(transitionName)
-        .duration(600)
+        .duration(transitionDuration)
         .ease(d3.easeCubicInOut);
 
     const nodes = treemapGroup.selectAll('g.node')
@@ -209,27 +209,9 @@ function renderTreemap() {
 
     exitNodes
         .transition(transitionName)
-        .duration(600)
-        .attr('transform', `translate(${width / 2},${(height - 60) / 2})`)
+        .duration(transitionDuration)
+        .style('opacity', 0)
         .remove();
-
-    exitNodes.select('.node-rect')
-        .transition(transitionName)
-        .duration(600)
-        .attr('width', 0)
-        .attr('height', 0);
-
-    exitNodes.select('.node-image')
-        .transition(transitionName)
-        .duration(600)
-        .attr('width', 0)
-        .attr('height', 0);
-
-    exitNodes.select('.node-overlay')
-        .transition(transitionName)
-        .duration(600)
-        .attr('width', 0)
-        .attr('height', 0);
 
     const nodesEnter = nodes.enter()
         .append('g')
@@ -267,22 +249,25 @@ function renderTreemap() {
     nodesEnter.filter(d => d.data.isCountry || d.data.isCategory)
         .append('text')
         .attr('class', 'node-label')
-        .attr('x', 0)
-        .attr('y', 0)
+        .attr('x', d => (d.x1 - d.x0) / 2)
+        .attr('y', d => (d.y1 - d.y0) / 2)
         .attr('text-anchor', 'middle')
         .attr('dominant-baseline', 'middle')
         .text(d => d.data.name)
-        .attr('font-size', '12px')
+        .attr('font-size', d => Math.max(12, Math.min(24, Math.min(d.x1 - d.x0, d.y1 - d.y0) / 8)) + 'px')
         .attr('font-weight', 'bold')
         .attr('fill', '#fff')
         .style('pointer-events', 'none')
-        .style('text-shadow', '2px 2px 4px rgba(0,0,0,0.8)');
+        .style('text-shadow', '2px 2px 4px rgba(0,0,0,0.8)')
+        .each(d => {
+            if (d3.select(this).node()) truncateText(d3.select(this), d.x1 - d.x0);
+        });
 
     nodesEnter.filter(d => d.data.isCountry || d.data.isCategory)
         .append('text')
         .attr('class', 'node-count')
-        .attr('x', 0)
-        .attr('y', 20)
+        .attr('x', d => (d.x1 - d.x0) / 2)
+        .attr('y', d => (d.y1 - d.y0) / 2 + 20)
         .attr('text-anchor', 'middle')
         .attr('dominant-baseline', 'middle')
         .text(d => formatNumber(d.value) + ' abonnés')
@@ -295,6 +280,7 @@ function renderTreemap() {
 
     nodesUpdate
         .transition(t)
+        .style('opacity', 1)
         .attr('transform', d => `translate(${d.x0},${d.y0})`);
 
     nodesUpdate.select('.node-rect')
@@ -316,12 +302,7 @@ function renderTreemap() {
         .transition(t)
         .attr('x', d => (d.x1 - d.x0) / 2)
         .attr('y', d => (d.y1 - d.y0) / 2)
-        .attr('font-size', d => {
-            const width = d.x1 - d.x0;
-            const height = d.y1 - d.y0;
-            const minDim = Math.min(width, height);
-            return Math.max(12, Math.min(24, minDim / 8)) + 'px';
-        })
+        .attr('font-size', d => Math.max(12, Math.min(24, Math.min(d.x1 - d.x0, d.y1 - d.y0) / 8)) + 'px')
         .tween('text', function (d) {
             const that = d3.select(this);
             return function (t) {
@@ -340,17 +321,14 @@ function renderTreemap() {
 
     nodesUpdate
         .on('mouseenter', function (event, d) {
-            if (d.data.isCountry || d.data.isCategory) {
-                d3.select(this).select('.node-rect')
-                    .transition()
-                    .duration(200)
-                    .attr('opacity', 1);
-            }
+            if (d.data.isCountry || d.data.isCategory) d3.select(this).select('.node-rect')
+                .transition()
+                .duration(200)
+                .attr('opacity', 1);
+
 
             let tooltipContent = '';
-            if (d.data.isCountry) tooltipContent = `<strong>${d.data.name}</strong><br/>` + `${d.data.count} YouTubeurs<br/>` + `${formatNumber(d.value)} abonnés`; else if (d.data.isCategory) {
-                tooltipContent = `<strong>${d.data.name}</strong><br/>` + `${d.data.count} chaînes<br/>` + `${formatNumber(d.value)} abonnés`;
-            } else if (d.data.isChannel) {
+            if (d.data.isCountry) tooltipContent = `<strong>${d.data.name}</strong><br/>` + `${d.data.count} YouTubeurs<br/>` + `${formatNumber(d.value)} abonnés`; else if (d.data.isCategory) tooltipContent = `<strong>${d.data.name}</strong><br/>` + `${d.data.count} chaînes<br/>` + `${formatNumber(d.value)} abonnés`; else if (d.data.isChannel) {
                 const subs = (+d.data.value).toLocaleString('fr-FR');
                 const category = d.data.data?.category || 'Non catégorisé';
                 tooltipContent = `<strong>${d.data.name}</strong><br/>` + `Catégorie: ${category}<br/>` + `Abonnés: ${subs}`;
@@ -362,18 +340,15 @@ function renderTreemap() {
                 .style('left', (event.pageX + 10) + 'px')
                 .style('top', (event.pageY - 10) + 'px');
         })
-        .on('mousemove', (event) => {
-            tooltip
-                .style('left', (event.pageX + 10) + 'px')
-                .style('top', (event.pageY - 10) + 'px');
-        })
+        .on('mousemove', (event) => tooltip
+            .style('left', (event.pageX + 10) + 'px')
+            .style('top', (event.pageY - 10) + 'px'))
         .on('mouseleave', function (event, d) {
-            if (d.data.isCountry || d.data.isCategory) {
-                d3.select(this).select('.node-rect')
-                    .transition()
-                    .duration(200)
-                    .attr('opacity', 0.8);
-            }
+            if (d.data.isCountry || d.data.isCategory) d3.select(this).select('.node-rect')
+                .transition()
+                .duration(200)
+                .attr('opacity', 0.8);
+
             tooltip.style('opacity', 0);
         })
         .on('click', function (event, d) {
