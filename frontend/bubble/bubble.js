@@ -95,14 +95,12 @@ function initializeSVG() {
 
 function updateMultiSelectDisplay(selectedCountries) {
     const selectedText = document.getElementById('selected-countries');
-
-    if (selectedCountries.length === 0) {
+    if (selectedCountries.length === 0)
         selectedText.textContent = 'Tous les pays';
-    } else if (selectedCountries.length === 1) {
+    else if (selectedCountries.length === 1)
         selectedText.textContent = baseCountryCodeToFullName(selectedCountries[0]);
-    } else {
+    else
         selectedText.textContent = `${selectedCountries.length} pays sélectionné(s)`;
-    }
 }
 
 function handleBackButtonClick() {
