@@ -1,5 +1,6 @@
 import DataPipeline from "./pipeline.js";
 import {renderTreemap} from "./box/box.js";
+import {renderBubbleChart} from "./bubble/bubble.js";
 
 const pipeline = new DataPipeline();
 
@@ -8,10 +9,6 @@ const state = {
 };
 
 let defaultFilters = {};
-
-function renderBubble() {
-    // import this function
-}
 
 function renderMap() {
     // import this function
@@ -25,7 +22,7 @@ function renderHistogram() {
     // import this function
 }
 
-const renderers = new Map([['treemap', renderTreemap], ['bubble', renderBubble], ['map', renderMap], ['pie', renderPie], ['histogram', renderHistogram]]);
+const renderers = new Map([['treemap', renderTreemap], ['bubble', renderBubbleChart], ['map', renderMap], ['pie', renderPie], ['histogram', renderHistogram]]);
 
 async function initPipeline() {
     await pipeline.load("data/youtube.csv", "csv");
@@ -71,7 +68,7 @@ function initializeFilters(data) {
         topK: 100
     };
 
-    state.filters = defaultFilters;
+    state.filters = {...defaultFilters};
 }
 
 function populateMultiSelect(dropdownId, triggerId, options, stateKey, labelSingular) {
@@ -265,6 +262,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 document.getElementById('box-btn').addEventListener('click', () => {
     state.visualization = 'treemap';
+    renderers.get(state.visualization)();
+});
+
+document.getElementById('bubbles-btn').addEventListener('click', () => {
+    state.visualization = 'bubble';
     renderers.get(state.visualization)();
 });
 

@@ -4,7 +4,6 @@
  * @author G2
  */
 class DataPipeline {
-
     /**
      * Initialize the DataPipeline with optional initial data.
      * @param data
@@ -22,7 +21,8 @@ class DataPipeline {
      */
     async load(path, type) {
         let raw;
-        if (type === "csv") raw = await d3.csv(path); else throw new Error("Unsupported data type: " + type);
+        if (type === "csv") raw = await d3.csv(path);
+        else throw new Error("Unsupported data type : " + type);
         this.data = raw.features ? raw.features : raw;
         return this;
     }
@@ -35,6 +35,16 @@ class DataPipeline {
      */
     addOperation(name, op) {
         this.operations.set(name, op);
+        return this;
+    }
+
+    /**
+     * Remove an operation from the pipeline by name.
+     * @param name {string}
+     * @returns {DataPipeline} The DataPipeline instance for chaining.
+     */
+    removeOperation(name) {
+        this.operations.delete(name);
         return this;
     }
 
@@ -94,12 +104,15 @@ class DataPipeline {
     async joinGeo(name, geoPath, key, geoKey = key, mergeFn = (a, b) => ({...a, ...b})) {
         const geoData = await d3.json(geoPath);
         const features = geoData.features || geoData;
+
         return this.addOperation(name, data => {
             const map = d3.index(features, d => d.properties?.[geoKey] || d[geoKey]);
-            return d3.filter(data.map(d => {
-                const match = map.get(d[key]);
-                return match ? mergeFn(d, match) : null;
-            }), Boolean);
+            return d3.filter(
+                data.map(d => {
+                    const match = map.get(d[key]);
+                    return match ? mergeFn(d, match) : null;
+                }),
+                Boolean);
         });
     }
 
@@ -111,7 +124,8 @@ class DataPipeline {
      * @returns {DataPipeline} The DataPipeline instance for chaining.
      */
     sortBy(name, key, ascending = true) {
-        return this.addOperation(name, data => d3.sort(data, d => ascending ? d[key] : -d[key]));
+        return this.addOperation(name, data =>
+            d3.sort(data, d => ascending ? d[key] : -d[key]));
     }
 
     /**
@@ -137,9 +151,11 @@ class DataPipeline {
                 return grouped;
             }
             return Array.from(grouped, ([key, values]) => ({
-                key, value: reducer(values)
+                key,
+                value: reducer(values)
             }));
         });
+
     }
 
     /**
