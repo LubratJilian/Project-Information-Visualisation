@@ -226,7 +226,7 @@ function renderTreemap() {
         .attr('stroke', '#fff')
         .attr('stroke-width', 2)
         .attr('opacity', 0.8)
-        .style('cursor', d => (d.data.isCountry || d.data.isCategory) ? 'pointer' : 'default');
+        .style('cursor', d => (d.data.isCountry || d.data.isCategory || d.data.isChannel) ? 'pointer' : 'default');
 
     nodesEnter.filter(d => d.data.isChannel)
         .append('image')
@@ -242,7 +242,8 @@ function renderTreemap() {
         .attr('class', 'node-overlay')
         .attr('width', 0)
         .attr('height', 0)
-        .attr('fill', 'rgba(0,0,0,0.3)');
+        .attr('fill', 'rgba(0,0,0,0.3)')
+        .style('cursor', 'pointer');
 
     nodesEnter.filter(d => d.data.isCountry || d.data.isCategory)
         .append('text')
@@ -323,7 +324,10 @@ function renderTreemap() {
                 .transition()
                 .duration(200)
                 .attr('opacity', 1);
-
+            else d3.select(this).select('.node-overlay')
+                .transition()
+                .duration(200)
+                .attr('fill', 'rgba(0,0,0,0.1)');
 
             let tooltipContent = '';
             if (d.data.isCountry) tooltipContent = `<strong>${d.data.name}</strong><br/>` + `${d.data.count} YouTubeurs<br/>` + `${formatNumber(d.value)} abonnés`; else if (d.data.isCategory) tooltipContent = `<strong>${d.data.name}</strong><br/>` + `${d.data.count} chaînes<br/>` + `${formatNumber(d.value)} abonnés`; else if (d.data.isChannel) {
@@ -346,6 +350,10 @@ function renderTreemap() {
                 .transition()
                 .duration(200)
                 .attr('opacity', 0.8);
+            else d3.select(this).select('.node-overlay')
+                .transition()
+                .duration(200)
+                .attr('fill', 'rgba(0,0,0,0.3)');
 
             tooltip.style('opacity', 0);
         })
@@ -367,7 +375,7 @@ function renderTreemap() {
             } else if (d.data.isCategory) {
                 state.selectedCategory = d.data.name;
                 renderTreemap();
-            }
+            } else if (d.data.isChannel && d.data.data?.channel_id) window.open(`https://www.youtube.com/channel/${d.data.data.channel_id}`, '_blank');
         });
 }
 
