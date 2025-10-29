@@ -134,6 +134,11 @@ function truncateText(textElement, width) {
     let maxWidth = width - 8;
     let textLength = textElement.node().getComputedTextLength();
 
+    if (!text || width <= 0 || maxWidth < 16) {
+        textElement.text('');
+        return;
+    }
+
     while (textLength > maxWidth && text.length > 0) {
         text = text.slice(0, -1);
         textElement.text(text + '…');

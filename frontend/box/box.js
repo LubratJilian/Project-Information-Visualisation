@@ -249,31 +249,34 @@ function renderTreemap() {
         .append('text')
         .attr('class', 'node-label')
         .attr('x', d => (d.x1 - d.x0) / 2)
-        .attr('y', d => (d.y1 - d.y0) / 2)
+        .attr('y', d => Math.max((d.y1 - d.y0) / 2, 18))
         .attr('text-anchor', 'middle')
         .attr('dominant-baseline', 'middle')
-        .text(d => d.data.name)
+        .text(d => d.x1 - d.x0 >= 30 ? d.data.name : '')
         .attr('font-size', d => Math.max(12, Math.min(24, Math.min(d.x1 - d.x0, d.y1 - d.y0) / 8)) + 'px')
         .attr('font-weight', 'bold')
         .attr('fill', '#fff')
         .style('pointer-events', 'none')
         .style('text-shadow', '2px 2px 4px rgba(0,0,0,0.8)')
         .each(d => {
-            if (d3.select(this).node()) truncateText(d3.select(this), d.x1 - d.x0);
+            if (d.x1 - d.x0 >= 30 && d3.select(this).node()) truncateText(d3.select(this), d.x1 - d.x0 - 10);
         });
 
     nodesEnter.filter(d => d.data.isCountry || d.data.isCategory)
         .append('text')
         .attr('class', 'node-count')
         .attr('x', d => (d.x1 - d.x0) / 2)
-        .attr('y', d => (d.y1 - d.y0) / 2 + 20)
+        .attr('y', d => Math.min((d.y1 - d.y0 / 2) + 20, d.y1 - d.y0 - 8))
         .attr('text-anchor', 'middle')
         .attr('dominant-baseline', 'middle')
-        .text(d => formatNumber(d.value) + ' abonnés')
+        .text(d => d.y1 - d.y0 >= 40 ? formatNumber(d.value) + ' abonnés' : '')
         .attr('font-size', '12px')
         .attr('fill', '#fff')
         .style('pointer-events', 'none')
-        .style('text-shadow', '1px 1px 3px rgba(0,0,0,0.8)');
+        .style('text-shadow', '1px 1px 3px rgba(0,0,0,0.8)')
+        .each(d => {
+            if (d.x1 - d.x0 > 0 && d3.select(this).node()) truncateText(d3.select(this), d.x1 - d.x0 - 10);
+        });
 
     const nodesUpdate = nodesEnter.merge(nodes);
 
@@ -316,7 +319,25 @@ function renderTreemap() {
     nodesUpdate.select('.node-count')
         .transition(t)
         .attr('x', d => (d.x1 - d.x0) / 2)
-        .attr('y', d => (d.y1 - d.y0) / 2 + 20);
+        .attr('y', d => {
+            const boxHeight = d.y1 - d.y0;
+            const labelOffset = 20;
+            const padding = 8;
+            return Math.min((boxHeight / 2) + labelOffset, boxHeight - padding);
+        })
+        .tween('text', function (d) {
+            const that = d3.select(this);
+            return function (t) {
+                if (t > 0.5) {
+                    const boxHeight = d.y1 - d.y0;
+                    const boxWidth = d.x1 - d.x0;
+                    if (boxHeight >= 40) {
+                        that.text(formatNumber(d.value) + ' abonnés');
+                        if (boxWidth > 0) truncateText(that, boxWidth - 10);
+                    } else that.text('');
+                }
+            };
+        });
 
     nodesUpdate
         .on('mouseenter', function (event, d) {
