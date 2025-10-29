@@ -1,0 +1,43 @@
+/* Histogram specific styles */
+
+.histogram-tooltip {
+    pointer-events: none;
+    transition: opacity 0.2s;
+}
+
+.bar {
+    transition: opacity 0.2s, fill 0.2s;
+}
+
+.bar:hover {
+    cursor: pointer;
+}
+
+.x-axis path,
+.y-axis path {
+    stroke: #4a5568;
+    stroke-width: 1.5;
+}
+
+.x-axis line,
+.y-axis line {
+    stroke: #cbd5e0;
+}
+
+.x-axis text,
+.y-axis text {
+    fill: #4a5568;
+    font-size: 11px;
+}
+
+.bar-label {
+    pointer-events: none;
+}
+
+.back-button rect {
+    transition: fill 0.2s;
+}
+
+.back-button:hover rect {
+    fill: #2d3748;
+}

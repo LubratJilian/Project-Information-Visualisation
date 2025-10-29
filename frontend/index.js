@@ -1,6 +1,7 @@
 import DataPipeline from "./pipeline.js";
 import {renderTreemap} from "./box/box.js";
 import {renderBubbleChart} from "./bubble/bubble.js";
+import {renderHistogram} from "./histogram/histogram.js";
 
 const pipeline = new DataPipeline();
 
@@ -15,10 +16,6 @@ function renderMap() {
 }
 
 function renderPie() {
-    // import this function
-}
-
-function renderHistogram() {
     // import this function
 }
 
@@ -267,6 +264,11 @@ document.getElementById('box-btn').addEventListener('click', () => {
 
 document.getElementById('bubbles-btn').addEventListener('click', () => {
     state.visualization = 'bubble';
+    renderers.get(state.visualization)();
+});
+	
+document.getElementById('histogram-btn').addEventListener('click', () => {
+    state.visualization = 'histogram';
     renderers.get(state.visualization)();
 });
 
