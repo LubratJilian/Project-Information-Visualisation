@@ -113,7 +113,6 @@ function prepareHierarchy() {
         hierarchy = {
             name: "root", children: allCountries
         };
-        console.log(hierarchy);
     } else if (state.selectedCountry && !state.selectedCategory) {
         const countryData = data.filter(d => (d.country || 'Non défini') === state.selectedCountry);
 
