@@ -14,10 +14,6 @@ function renderBubble() {
     // import this function
 }
 
-function renderMap() {
-    // import this function
-}
-
 function renderPie() {
     // import this function
 }

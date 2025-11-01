@@ -39,6 +39,16 @@ class DataPipeline {
     }
 
     /**
+     * Remove an operation to the pipeline.
+     * @param name {string}
+     * @param op {function}
+     * @returns {DataPipeline} The DataPipeline instance for chaining.
+     */
+    removeOperation(name, op) {
+        this.operations.delete(name);
+    }
+
+    /**
      * Clear all operations from the pipeline.
      * @returns {DataPipeline} The DataPipeline instance for chaining.
      */
@@ -83,27 +93,6 @@ class DataPipeline {
     }
 
     /**
-     * Join data with geographical data from a GeoJSON file.
-     * @param name {string}
-     * @param geoPath {string}
-     * @param key {string}
-     * @param geoKey {string}
-     * @param mergeFn {function}
-     * @returns {Promise<DataPipeline>} The DataPipeline instance for chaining.
-     */
-    async joinGeo(name, geoPath, key, geoKey = key, mergeFn = (a, b) => ({...a, ...b})) {
-        const geoData = await d3.json(geoPath);
-        const features = geoData.features || geoData;
-        return this.addOperation(name, data => {
-            const map = d3.index(features, d => d.properties?.[geoKey] || d[geoKey]);
-            return d3.filter(data.map(d => {
-                const match = map.get(d[key]);
-                return match ? mergeFn(d, match) : null;
-            }), Boolean);
-        });
-    }
-
-    /**
      * Sort data by the specified key.
      * @param name {string} Name of the operation.
      * @param key {string} Key to sort by.
@@ -128,19 +117,30 @@ class DataPipeline {
      * Aggregate grouped data using the provided reducer function.
      * @param name {string} Name of the operation.
      * @param reducer {function} Function to reduce the grouped values.
+     * @param asMap {boolean} Flag to set the result in map or not
      * @returns {DataPipeline} The DataPipeline instance for chaining.
      */
-    aggregate(name, reducer) {
+
+    aggregate(name, reducer, asMap=false) {
         return this.addOperation(name, grouped => {
             if (!(grouped instanceof Map)) {
                 console.warn("aggregate() doit être appelé après groupBy()");
                 return grouped;
             }
-            return Array.from(grouped, ([key, values]) => ({
-                key, value: reducer(values)
-            }));
+            const entries = Array.from(grouped, ([key, values]) => [key, reducer(values)]);
+            return asMap ? new Map(entries) : entries.map(([key, value]) => ({ key, value }));
         });
     }
+
+    convertMap(name, keyField) {
+    return this.addOperation(name, data => {
+        if (Array.isArray(data)) {
+            return new Map(data.map(d => [d[keyField], d]));
+        }
+        console.warn("convertMap() expects an array");
+        return data;
+    });
+}
 
     /**
      * Execute the pipeline, optionally discarding some operations.
