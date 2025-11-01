@@ -115,4 +115,35 @@
     return countryCodes[code.toUpperCase()] || "Unknown Country";
 }
 
-export {baseCountryCodeToFullName};
+function updateMultiSelectDisplay(selectedCountries) {
+    const selectedText = document.getElementById('selected-countries');
+    if (selectedCountries.length === 0)
+        selectedText.textContent = 'Tous les pays';
+    else if (selectedCountries.length === 1)
+        selectedText.textContent = baseCountryCodeToFullName(selectedCountries[0]);
+    else
+        selectedText.textContent = `${selectedCountries.length} pays sélectionné(s)`;
+}
+
+function formatNumber(num) {
+    return d3.format(".2s")(num);
+}
+
+function truncateText(textElement, width) {
+    let text = textElement.text();
+    let maxWidth = width - 8;
+    let textLength = textElement.node().getComputedTextLength();
+
+    if (!text || width <= 0 || maxWidth < 16) {
+        textElement.text('');
+        return;
+    }
+
+    while (textLength > maxWidth && text.length > 0) {
+        text = text.slice(0, -1);
+        textElement.text(text + '…');
+        textLength = textElement.node().getComputedTextLength();
+    }
+}
+
+export {baseCountryCodeToFullName, updateMultiSelectDisplay, formatNumber, truncateText};
