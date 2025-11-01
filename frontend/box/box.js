@@ -1,5 +1,5 @@
 import pipeline from "../index.js";
-import {formatNumber, truncateText, updateMultiSelectDisplay} from "../utils/utils.js";
+import {baseCountryCodeToFullName, formatNumber, truncateText, updateMultiSelectDisplay} from "../utils/utils.js";
 
 const state = {
     selectedCountry: null, selectedCategory: null, countriesSelected: [], isInitialized: false
@@ -351,7 +351,7 @@ function renderTreemap() {
                 .attr('fill', 'rgba(0,0,0,0.1)');
 
             let tooltipContent = '';
-            if (d.data.isCountry) tooltipContent = `<strong>${d.data.name}</strong><br/>` + `${d.data.count} YouTubeurs<br/>` + `${formatNumber(d.value)} abonnés`; else if (d.data.isCategory) tooltipContent = `<strong>${d.data.name}</strong><br/>` + `${d.data.count} chaînes<br/>` + `${formatNumber(d.value)} abonnés`; else if (d.data.isChannel) {
+            if (d.data.isCountry) tooltipContent = `<strong>${baseCountryCodeToFullName(d.data.name)}</strong><br/>` + `${d.data.count} YouTubeurs<br/>` + `${formatNumber(d.value)} abonnés`; else if (d.data.isCategory) tooltipContent = `<strong>${d.data.name}</strong><br/>` + `${d.data.count} chaînes<br/>` + `${formatNumber(d.value)} abonnés`; else if (d.data.isChannel) {
                 const subs = (+d.data.value).toLocaleString('fr-FR');
                 const category = d.data.data?.category || 'Non catégorisé';
                 tooltipContent = `<strong>${d.data.name}</strong><br/>` + `Catégorie: ${category}<br/>` + `Abonnés: ${subs}`;
