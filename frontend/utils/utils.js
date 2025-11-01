@@ -1,7 +1,7 @@
 ﻿function baseCountryCodeToFullName(code) {
     const countryCodes = {
         "KR": "South Korea",
-        "": "Unknown Country",
+        "": "Non défini",
         "IN": "India",
         "CL": "Chile",
         "US": "United States",
@@ -112,7 +112,7 @@
         "ME": "Montenegro",
         "UM": "United States Minor Outlying Islands"
     };
-    return countryCodes[code] || "Unknown Country";
+    return countryCodes[code.toUpperCase()] || "Unknown Country";
 }
 
 export {baseCountryCodeToFullName};

@@ -1,6 +1,7 @@
 import DataPipeline from "./pipeline.js";
 import {renderTreemap} from "./box/box.js";
 import {renderBubbleChart} from "./bubble/bubble.js";
+import {baseCountryCodeToFullName} from "./utils/utils.js";
 
 const pipeline = new DataPipeline();
 
@@ -96,7 +97,7 @@ function populateMultiSelect(dropdownId, triggerId, options, stateKey, labelSing
 
         const label = document.createElement('label');
         label.htmlFor = checkbox.id;
-        label.textContent = option;
+        label.textContent = labelSingular === 'pays' ? baseCountryCodeToFullName(option) : option;
 
         const item = document.createElement('div');
         item.className = 'multi-select-item';
@@ -117,7 +118,8 @@ function populateMultiSelect(dropdownId, triggerId, options, stateKey, labelSing
 
         for (const item of items) {
             const value = item.dataset.value;
-            if (value.includes(searchTerm)) item.style.display = ''; else item.style.display = 'none';
+            if (value.includes(searchTerm) || baseCountryCodeToFullName(value).toLowerCase().includes(searchTerm)) item.style.display = '';
+            else item.style.display = 'none';
         }
     });
 
@@ -127,9 +129,7 @@ function populateMultiSelect(dropdownId, triggerId, options, stateKey, labelSing
         if (dropdown.classList.contains('active')) {
             searchInput.value = '';
             searchInput.focus();
-            for (const item of itemsContainer.querySelectorAll('.multi-select-item')) {
-                item.style.display = '';
-            }
+            for (const item of itemsContainer.querySelectorAll('.multi-select-item')) item.style.display = '';
         }
     });
 
@@ -137,9 +137,7 @@ function populateMultiSelect(dropdownId, triggerId, options, stateKey, labelSing
         dropdown.classList.remove('active');
     });
 
-    dropdown.addEventListener('click', (e) => {
-        e.stopPropagation();
-    });
+    dropdown.addEventListener('click', (e) => e.stopPropagation());
 }
 
 function updateMultiSelectState(dropdownId, stateKey, selectedText, labelSingular) {
