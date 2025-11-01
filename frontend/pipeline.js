@@ -4,7 +4,6 @@
  * @author G2
  */
 class DataPipeline {
-
     /**
      * Initialize the DataPipeline with optional initial data.
      * @param data
@@ -22,7 +21,8 @@ class DataPipeline {
      */
     async load(path, type) {
         let raw;
-        if (type === "csv") raw = await d3.csv(path); else throw new Error("Unsupported data type: " + type);
+        if (type === "csv") raw = await d3.csv(path);
+        else throw new Error("Unsupported data type : " + type);
         this.data = raw.features ? raw.features : raw;
         return this;
     }
@@ -39,13 +39,13 @@ class DataPipeline {
     }
 
     /**
-     * Remove an operation to the pipeline.
+     * Remove an operation from the pipeline by name.
      * @param name {string}
-     * @param op {function}
      * @returns {DataPipeline} The DataPipeline instance for chaining.
      */
-    removeOperation(name, op) {
+    removeOperation(name) {
         this.operations.delete(name);
+        return this;
     }
 
     /**
@@ -100,7 +100,8 @@ class DataPipeline {
      * @returns {DataPipeline} The DataPipeline instance for chaining.
      */
     sortBy(name, key, ascending = true) {
-        return this.addOperation(name, data => d3.sort(data, d => ascending ? d[key] : -d[key]));
+        return this.addOperation(name, data =>
+            d3.sort(data, d => ascending ? d[key] : -d[key]));
     }
 
     /**
