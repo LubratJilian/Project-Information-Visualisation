@@ -47,6 +47,10 @@ function initializeFilters(data) {
     const videosMin = Math.min(...videos);
     const videosMax = Math.max(...videos);
 
+    const uniqueCountriesCount = countries.length;
+    const uniqueCategoriesCount = categories.length;
+    const totalChannelsCount = data.length;
+
     populateMultiSelect('countryDropdown', 'countryTrigger', countries, 'selectedCountries', 'pays');
     populateMultiSelect('categoryDropdown', 'categoryTrigger', categories, 'selectedCategories', 'catégories');
 
@@ -68,9 +72,9 @@ function initializeFilters(data) {
         maxVideos: videosMax,
         minDate: '2005-01-01',
         maxDate: new Date().toISOString().split('T')[0],
-        topK: 100,
-        topKCountries: 0,
-        topKCategories: 0
+        topK: totalChannelsCount,
+        topKCountries: uniqueCountriesCount,
+        topKCategories: uniqueCategoriesCount
     };
 
     state.filters = {...defaultFilters};
@@ -224,8 +228,12 @@ function updateSliderTrack(minSlider, maxSlider) {
     container.style.setProperty('--max-percent', `${percentMax}%`);
 }
 
-function bindInput(inputId, stateKey, type = 'string') {
+function bindInput(inputId, stateKey, type = 'string', maxValue = null) {
     const input = document.getElementById(inputId);
+    if (maxValue !== null && type === 'number') {
+        input.max = maxValue;
+        input.placeholder = `0-${maxValue}`;
+    }
     input.addEventListener('input', () => state.filters[stateKey] = type === 'number' ? Number.parseInt(input.value) : input.value);
 }
 
@@ -291,7 +299,7 @@ document.getElementById('applyFilters').addEventListener('click', () => {
         .topKBy('topKCountries', 'country', f.topKCountries, 'subscriber_count')
         .topKBy('topKCategories', 'category', f.topKCategories, 'subscriber_count')
         .sortBy('sortBy', 'subscriber_count', false)
-        .limit('topK', f.topK);
+        .limit('topK', f.topK || defaultFilters.topK);
 
     renderers.get(state.visualization)();
 });
