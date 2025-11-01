@@ -249,13 +249,9 @@ function resetFilters() {
     document.getElementById('maxDate').value = state.filters.maxDate;
     document.getElementById('topK').value = state.filters.topK;
 
-    pipeline.clearOperations();
-
-    if(state.visualization === map){
+    if(state.visualization === "map"){
         document.getElementById('metric-choice').value = 'maxSubscribers';
     }
-
-    renderers.get(state.visualization)();
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -319,59 +315,6 @@ document.getElementById('map-btn').addEventListener('click', () => {
     clearMap();
     state.visualization = 'map';
     renderers.get(state.visualization)();
-});
-
-function updateFiltersForMetric(statsMap, metricKey) {
-  // Définir quel slider utiliser selon la métrique
-  const isVideoMetric = metricKey === 'avgVideos' || metricKey === 'totalVideos';
-  
-  const sliderConfig = isVideoMetric ? {
-    min: 'minVideos',
-    max: 'maxVideos',
-    minInput: 'minVideosInput',
-    maxInput: 'maxVideosInput',
-    minFilter: 'minVideos',
-    maxFilter: 'maxVideos',
-    label: 'Nombre de vidéos'
-  } : {
-    min: 'minSubs',
-    max: 'maxSubs',
-    minInput: 'minSubsInput',
-    maxInput: 'maxSubsInput',
-    minFilter: 'minSubscribers',
-    maxFilter: 'maxSubscribers',
-    label: 'Nombre d\'abonnés'
-  };
-  
-  // Extraire les valeurs
-  const values = Array.from(statsMap.values())
-    .map(stats => stats[metricKey])
-    .filter(n => !Number.isNaN(n) && n !== undefined);
-  
-  const minValue = Math.min(...values);
-  const maxValue = Math.max(...values);
-  
-  // Mettre à jour le slider
-  bindDoubleSlider(
-    sliderConfig.min,
-    sliderConfig.max,
-    sliderConfig.minInput,
-    sliderConfig.maxInput,
-    sliderConfig.minFilter,
-    sliderConfig.maxFilter,
-    minValue,
-    maxValue
-  );
-  
-  // Mettre à jour les filtres
-  state.filters[sliderConfig.minFilter] = minValue;
-  state.filters[sliderConfig.maxFilter] = maxValue;
-}
-
-document.getElementById('metric-choice')?.addEventListener('change', async (e) => {
-    if(e.target.value === "channelCount")
-        return initializeFilters(pipeline.run())
-    updateFiltersForMetric(getGlobalStatsCountry(e.target.value), e.target.value);
 });
 
 window.closeSidePanel = function () {
