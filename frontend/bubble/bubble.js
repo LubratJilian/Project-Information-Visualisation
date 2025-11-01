@@ -5,7 +5,7 @@ let currentView = 'countries';
 let currentCountry = null;
 let currentYoutuber = null;
 let videosData = [];
-let countriesSelected = []
+let countriesSelected = [];
 
 let svg;
 let bubblesGroup;
@@ -99,18 +99,15 @@ function handleBackButtonClick() {
     else if (currentView === 'youtubers') {
         if (countriesSelected.length > 0) {
             pipeline.addOperation('countryFilter', data => data.filter(d => countriesSelected.includes(d.country)));
-            document.querySelectorAll(".multi-select-item").forEach(item => {
-                if (countriesSelected.includes(item.textContent))
-                    item.querySelector("input").checked = true;
-            });
+            for (const item of document.querySelectorAll("#countryDropdown .multi-select-item")) {
+                if (countriesSelected.includes(item.textContent)) item.querySelector("input").checked = true;
+            }
             updateMultiSelectDisplay(countriesSelected);
             pipeline.run();
         } else {
             pipeline.removeOperation("countryFilter");
-            document.querySelectorAll(".multi-select-items input[type=\"checkbox\"]").forEach(cb => {
-                cb.checked = false;
-            });
-            updateMultiSelectDisplay([])
+            for (const cb of document.querySelectorAll("#countryDropdown .multi-select-items input[type=\"checkbox\"]")) cb.checked = false;
+            updateMultiSelectDisplay([]);
         }
         showCountries();
     }
@@ -233,17 +230,16 @@ function showCountries() {
         .on('click', (event, d) => {
             tooltip.style('opacity', 0);
             countriesSelected = [];
-            for (const cb of document.querySelectorAll('.multi-select-items input[type="checkbox"]')) if (cb.checked)
-                countriesSelected.push(cb.parentElement.textContent);
+            for (const cb of document.querySelectorAll('#countryDropdown .multi-select-items input[type="checkbox"]'))
+                if (cb.checked) countriesSelected.push(cb.parentElement.textContent);
             showYoutubers(d.data.country);
         });
 }
 
 function showYoutubers(country) {
     pipeline.addOperation('countryFilter', data => data.filter(d => d.country === country));
-    document.querySelectorAll(".multi-select-item").forEach(item => {
+    for (const item of document.querySelectorAll("#countryDropdown .multi-select-item"))
         item.querySelector("input").checked = item.textContent === country;
-    });
     document.getElementById('selected-countries').textContent = country;
 
     const pipelineData = pipeline.run();

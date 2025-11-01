@@ -19,11 +19,11 @@ function handleBackButtonClick() {
 
         if (state.countriesSelected.length > 0) {
             pipeline.addOperation('countryFilter', data => data.filter(d => state.countriesSelected.includes(d.country)));
-            for (const item of document.querySelectorAll(".multi-select-item")) if (state.countriesSelected.includes(item.textContent)) item.querySelector("input").checked = true;
+            for (const item of document.querySelectorAll("#countryDropdown .multi-select-item")) if (state.countriesSelected.includes(item.textContent)) item.querySelector("input").checked = true;
             updateMultiSelectDisplay(state.countriesSelected);
         } else {
             pipeline.removeOperation("countryFilter");
-            for (const cb of document.querySelectorAll(".multi-select-items input[type='checkbox']")) cb.checked = false;
+            for (const cb of document.querySelectorAll("#countryDropdown .multi-select-items input[type='checkbox']")) cb.checked = false;
             updateMultiSelectDisplay([]);
         }
         renderTreemap();
@@ -383,13 +383,13 @@ function renderTreemap() {
 
             if (d.data.isCountry) {
                 state.countriesSelected = [];
-                const checkboxes = document.querySelectorAll('.multi-select-items input[type="checkbox"]');
+                const checkboxes = document.querySelectorAll('#countryDropdown .multi-select-items input[type="checkbox"]');
                 for (const cb of checkboxes) if (cb.checked) state.countriesSelected.push(cb.parentElement.textContent);
 
                 state.selectedCountry = d.data.name;
                 pipeline.addOperation('countryFilter', data => data.filter(item => (item.country || 'Non défini') === state.selectedCountry));
 
-                for (const item of document.querySelectorAll(".multi-select-item")) item.querySelector("input").checked = item.textContent === state.selectedCountry;
+                for (const item of document.querySelectorAll("#countryDropdown .multi-select-item")) item.querySelector("input").checked = item.textContent === state.selectedCountry;
                 updateMultiSelectDisplay([state.selectedCountry]);
 
                 renderTreemap();
