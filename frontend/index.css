@@ -75,6 +75,14 @@ main {
     gap: 1rem;
     width: 100%;
     transition: grid-template-columns 0.3s ease;
+    min-height: 0;
+    max-height: 100%;
+
+    #svg {
+        min-height: 0;
+        height: 100%;
+        width: 100%;
+    }
 
     &.open {
         grid-template-columns: 8fr 3fr;
@@ -283,7 +291,7 @@ main {
     background: var(--panel);
     backdrop-filter: blur(6px);
     border-radius: 20px;
-    margin-bottom: 2rem;
+    margin: 0;
     padding: 2rem;
     box-shadow: 0 20px 40px -32px rgba(15, 23, 42, 0.8);
     gap: 1.5rem;
