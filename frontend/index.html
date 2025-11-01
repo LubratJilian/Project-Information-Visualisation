@@ -5,14 +5,16 @@
     <title>Visualisations interactives avec D3.js</title>
     <link rel="stylesheet" href="index.css">
     <link rel="stylesheet" href="box/box.css">
-</head>
+    <link rel="stylesheet" href="pie/pie.css">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    </head>
 <body onload="initPipeline()">
     <header class="hero">
         <nav class="toc">
             <button id="box-btn">Hiérarchie en boîtes imbriquées</button>
             <a href="#bubbles">Bulles proportionnelles</a>
             <a href="#map">Carte interactive</a>
-            <a href="#pie">Diagramme circulaire</a>
+            <button id="pie-btn">Diagramme circulaire</button>
             <a href="#histogram">Histogramme</a>
         </nav>
     </header>
@@ -20,9 +22,8 @@
         <div id="svg"></div>
         <div id="filter-panel"></div>
     </main>
-</body>
-<script src="index.js" type="module"></script>
 
-<script src="box/box.js" type="module"></script>
-<script src="./node_modules/d3/dist/d3.min.js"></script>
+    <script src="./node_modules/d3/dist/d3.min.js"></script>
+    <script src="index.js" type="module"></script>
+</body>
 </html>

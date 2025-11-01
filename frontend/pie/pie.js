@@ -1,24 +1,64 @@
 // Use the d3 instance injected on window by pie.html (loaded from CDN)
 const d3 = window.d3;
 
-const CSV_PATH = '/youtube_channel_info_v2.csv';
+const CSV_PATH = '../data/youtube.csv';
 
 const width = 700;
 const height = 500;
 const radius = Math.min(width, height) / 2 - 20;
 
-const svg = d3.select('#chart')
-  .append('svg')
-  .attr('width', width)
-  .attr('height', height)
-  .append('g')
-  .attr('transform', `translate(${width/2},${height/2})`);
+// svg will be created lazily when #chart exists
+let svg = null;
+function ensureSvg() {
+  const container = d3.select('#chart');
+  if (container.empty()) return false;
+  // if we already have an svg selection, verify its node is still in the DOM
+  if (svg) {
+    const node = svg.node && svg.node();
+    if (!node || !document.contains(node)) {
+      svg = null; // was removed, recreate below
+    }
+  }
+  if (!svg) {
+    // compute size from the container to allow the pie to grow responsively
+    const node = container.node();
+    const rect = node.getBoundingClientRect();
+    const w = Math.max(300, rect.width || width);
+    // prefer a landscape feel but cap by viewport to avoid overflow
+    const h = Math.max(300, Math.min(window.innerHeight * 0.65, w * 0.7));
+    const r = Math.min(w, h) / 2 - 20;
+    // update the outer arc radius used by transitions
+    arc = d3.arc().innerRadius(0).outerRadius(r);
+
+    svg = container.append('svg')
+      .attr('width', w)
+      .attr('height', h)
+      .append('g')
+      .attr('transform', `translate(${w/2},${h/2})`);
+  }
+  return true;
+}
+
+// populate the country <select> from current aggregates; called on each render so
+// recreated DOM receives options even if aggregates were already built
+function populateCountrySelect() {
+  const countries = Array.from(dataByCountry.keys()).sort();
+  const select = d3.select('#countrySelect');
+  if (select.empty()) return;
+  select.selectAll('option').remove();
+  const allCountries = [WORLD_KEY].concat(countries);
+  select.selectAll('option')
+    .data(allCountries)
+    .enter().append('option')
+    .attr('value', d => d)
+    .text(d => d);
+}
 
 // We'll build a palette dynamically per render depending on number of slices
 let color = d3.scaleOrdinal(d3.schemeTableau10);
 
 const pie = d3.pie().value(d => d.value).sort(null);
-const arc = d3.arc().innerRadius(0).outerRadius(radius);
+let arc = d3.arc().innerRadius(0).outerRadius(radius);
 
 let dataByCountry = new Map();
 // For drilldown: country -> category -> Map(channelName -> totalViews)
@@ -26,10 +66,34 @@ let dataByCountryCategoryChannels = new Map();
 
 let currentCountry = null;
 let currentDrillCategory = null;
-const breadcrumbEl = d3.select('#breadcrumb');
+let resizeTimer = null;
+// don't capture breadcrumb at module load (DOM may not exist); select it lazily
+function getBreadcrumbEl() { return d3.select('#breadcrumb'); }
 const WORLD_KEY = 'Monde';
 
+// small mapping for common ISO alpha-2 codes -> full country name (used only in pie view)
+const countryCodeMap = { AE: 'United Arab Emirates', AF: 'Afghanistan', AG: 'Antigua and Barbuda', AL: 'Albania', AQ:'Antarctica', AR: 'Argentina', AT: 'Austria', AU: 'Australia', BA: 'Bosnia and Herzegovina', BD: 'Bangladesh', BE: 'Belgium', BG: 'Bulgaria', BH: 'Bahrain', BM: 'Bermuda', BR: 'Brazil', BY: 'Belarus', CA: 'Canada', CH: 'Switzerland', CL: 'Chile', CN: 'China', CO: 'Colombia', CR: 'Costa Rica', CZ: 'Czech Republic', CX: 'Christmas Island', CY: 'Cyprus', DE: 'Germany', DK: 'Denmark', DO: 'Dominican Republic', DZ: 'Algeria', EC: 'Ecuador', EE: 'Estonia', EG: 'Egypt', ES: 'Spain', FI: 'Finland', FR: 'France', GB: 'United Kingdom', GE: 'Georgia', GH: 'Ghana', GM: 'Gambia', GR: 'Greece', HK: 'Hong Kong', HN: 'Honduras', HR: 'Croatia', HU: 'Hungary', ID: 'Indonesia', IE: 'Ireland', IL: 'Israel', IN: 'India', IQ: 'Iraq', IS: 'Iceland', IT: 'Italy', JM: 'Jamaica', JO: 'Jordan', JP: 'Japan', KE: 'Kenya', KH: 'Cambodia', KR: 'South Korea', KZ: 'Kazakhstan', LA: 'Laos', LB: 'Lebanon', LK: 'Sri Lanka', LT: 'Lithuania', LU: 'Luxembourg', LV: 'Latvia', LY: 'Libya', MA: 'Morocco', MC: 'Monaco', MD: 'Moldova', ME: 'Montenegro', MK: 'North Macedonia', MT: 'Malta', MX: 'Mexico', MY: 'Malaysia', NG: 'Nigeria', NL: 'Netherlands', NO: 'Norway', NP: 'Nepal', NZ: 'New Zealand', OM: 'Oman', PE: 'Peru', PH: 'Philippines', PK: 'Pakistan', PL: 'Poland', PR: 'Puerto Rico', PT: 'Portugal', PY: 'Paraguay', QA: 'Qatar', RO: 'Romania', RS: 'Serbia', RU: 'Russia', SA: 'Saudi Arabia', SE: 'Sweden', SG: 'Singapore', SI: 'Slovenia', SK: 'Slovakia', SV: 'El Salvador', TH: 'Thailand', TN: 'Tunisia', TR: 'Turkey', TW: 'Taiwan', TZ: 'Tanzania', UA: 'Ukraine', UG: 'Uganda', UM: 'Minor Outlying Islands', US: 'United States', UY: 'Uruguay', VI: 'Virgin Islands', VN: 'Vietnam', ZA: 'South Africa', ZW: 'Zimbabwe', UK: 'United Kingdom' };
+
+// track observed 2-letter country tokens from the dataset so we can ask user to expand map
+const observedCountryCodes = new Set();
+
+function toTitleCase(s) {
+  if (!s) return s;
+  return String(s).toLowerCase().split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+
+function normalizeCountryForPie(rawCountry) {
+  if (!rawCountry) return 'Unknown';
+  const str = String(rawCountry).trim();
+  if (str === '') return 'Unknown';
+  const up = str.toUpperCase();
+  if (/^[A-Z]{2}$/.test(up)) return countryCodeMap[up] || up;
+  if (str === str.toUpperCase()) return toTitleCase(str);
+  return str;
+}
+
 function updateBreadcrumb() {
+  const breadcrumbEl = getBreadcrumbEl();
   breadcrumbEl.html('');
   const parts = [];
   parts.push({label: WORLD_KEY, type: 'world'});
@@ -134,15 +198,22 @@ function makeColorPalette(n) {
   return d3.quantize(d3.interpolateTurbo, n);
 }
 
-// load CSV and build aggregated maps
-d3.csv(CSV_PATH, d => ({
-  channel_name: d.channel_name || '',
-  category: d.category || 'Unknown',
-  country: (d.country || 'Unknown').trim(),
-  view_count: parseNumber(d.view_count)
-})).then(rows => {
-  rows.forEach(r => {
-    const country = (r.country || 'Unknown').trim() || 'Unknown';
+// Build aggregated maps from an array of rows (same normalization as previous CSV loader)
+function buildAggregatesFromRows(rows) {
+  rows.forEach(r0 => {
+    // collect observed 2-letter country tokens for later reporting
+    const rawToken = (r0.country || '').trim();
+    const upToken = String(rawToken).toUpperCase();
+    if (/^[A-Z]{2}$/.test(upToken)) observedCountryCodes.add(upToken);
+    const r = {
+      channel_name: r0.channel_name || '',
+      category: r0.category || 'Unknown',
+      country: (r0.country || 'Unknown').trim(),
+      view_count: parseNumber(r0.view_count)
+    };
+
+    // normalize country for display within pie view (map codes to full names)
+    const country = normalizeCountryForPie(r.country) || 'Unknown';
     const channelName = (r.channel_name || '').trim() || 'Unknown channel';
     const rawCats = (r.category || 'Unknown');
     const cats = rawCats.split(/\s*,\s*/).map(c => c.trim()).filter(c => c.length > 0);
@@ -163,6 +234,7 @@ d3.csv(CSV_PATH, d => ({
   });
 
   const countries = Array.from(dataByCountry.keys()).sort();
+
   const select = d3.select('#countrySelect');
   select.selectAll('option').remove();
   const allCountries = [WORLD_KEY].concat(countries);
@@ -172,87 +244,112 @@ d3.csv(CSV_PATH, d => ({
     .attr('value', d => d)
     .text(d => d);
 
-  // initial render: Monde (world aggregated)
-  renderForCountry(WORLD_KEY);
-
   select.on('change', function() {
     const c = this.value;
     currentDrillCategory = null;
     renderForCountry(c);
   });
-});
+}
+
+function buildAggregatesIfNeeded(done) {
+  if (dataByCountry.size > 0) {
+    if (done) done();
+    return;
+  }
+  const rows = window.pipeline && window.pipeline.data;
+  if (rows && rows.length > 0) {
+    buildAggregatesFromRows(rows);
+    if (done) done();
+    return;
+  }
+  // retry soon
+  setTimeout(() => buildAggregatesIfNeeded(done), 100);
+}
 
 function renderForCountry(country) {
-  currentCountry = country;
-  currentDrillCategory = null;
-  const catMap = country === WORLD_KEY ? aggregateAllCountriesCatMap() : (dataByCountry.get(country) || new Map());
-
-  // default grouping: top 9 + Autres => 10 items; if Autres > 50% then expand to 20
-  let grouping = getCategoryGrouping(catMap, 10);
-  const total = d3.sum(prepareDataset(catMap), d => d.value) || 0;
-  const autres = grouping.dataset.find(d => d.category === 'Autres');
-  let extendedMode = false;
-  if (autres && total > 0 && (autres.value / total) > 0.5) {
-    // switch to extended view showing more items
-    grouping = getCategoryGrouping(catMap, 20);
-    extendedMode = true;
+  // Ensure SVG container exists and data aggregates are ready before rendering.
+  // If not yet available, retry shortly.
+  if (!ensureSvg()) {
+    // DOM not ready; try again after a short delay
+    setTimeout(() => renderForCountry(country), 100);
+    return;
   }
 
-  const dataset = grouping.dataset;
-  groupedCategoriesByCountry.set(country, grouping.groupedCategories || []);
+  buildAggregatesIfNeeded(() => {
+    // actual render logic moved here to run after data/dom readiness
+    currentCountry = country;
+    currentDrillCategory = null;
+    const catMap = country === WORLD_KEY ? aggregateAllCountriesCatMap() : (dataByCountry.get(country) || new Map());
 
-  // reflect the active country in the selector
+    // default grouping: top 9 + Autres => 10 items; if Autres > 50% then expand to 20
+    let grouping = getCategoryGrouping(catMap, 10);
+    const total = d3.sum(prepareDataset(catMap), d => d.value) || 0;
+    const autres = grouping.dataset.find(d => d.category === 'Autres');
+    let extendedMode = false;
+    if (autres && total > 0 && (autres.value / total) > 0.5) {
+      // switch to extended view showing more items
+      grouping = getCategoryGrouping(catMap, 20);
+      extendedMode = true;
+    }
+
+    const dataset = grouping.dataset;
+    groupedCategoriesByCountry.set(country, grouping.groupedCategories || []);
+
+    // reflect the active country in the selector
+  // ensure the country select is populated (handles DOM recreation)
+  populateCountrySelect();
   const select = d3.select('#countrySelect');
   if (!select.empty()) select.property('value', country);
 
-  // rebuild color scale for the dataset size
-  const palette = makeColorPalette(dataset.length || 1);
-  color = d3.scaleOrdinal().domain(dataset.map(d => d.category)).range(palette);
+    // rebuild color scale for the dataset size
+    const palette = makeColorPalette(dataset.length || 1);
+    color = d3.scaleOrdinal().domain(dataset.map(d => d.category)).range(palette);
 
-  const arcs = pie(dataset);
+    const arcs = pie(dataset);
 
-  // DATA JOIN
-  const paths = svg.selectAll('path').data(arcs, d => d.data.category);
+    // DATA JOIN
+    const paths = svg.selectAll('path').data(arcs, d => d.data.category);
 
-  // EXIT
-  paths.exit().transition().duration(400).attrTween('d', arcTweenExit).remove();
+    // EXIT
+    paths.exit().transition().duration(400).attrTween('d', arcTweenExit).remove();
 
-  // ENTER
-  const enter = paths.enter().append('path')
-    .attr('fill', d => color(d.data.category))
-    .attr('stroke', '#000')
-    .attr('stroke-width', 0.6)
-    .attr('stroke-linejoin', 'round')
-    .each(function(d) { this._current = d; })
-    .on('mouseover', (event, d) => showTooltip(event, d))
-    .on('mouseout', hideTooltip)
-    .on('click', (event, d) => {
-      const cat = d.data.category;
-      if (currentDrillCategory === cat) {
-        currentDrillCategory = null;
-        renderForCountry(currentCountry);
-      } else {
-        currentDrillCategory = cat;
-        renderDrillForCategory(currentCountry, cat);
-      }
-    });
+    // ENTER
+    const enter = paths.enter().append('path')
+      .attr('fill', d => color(d.data.category))
+      .attr('stroke', '#000')
+      .attr('stroke-width', 0.6)
+      .attr('stroke-linejoin', 'round')
+      .each(function(d) { this._current = d; })
+      .on('mouseover', (event, d) => showTooltip(event, d))
+      .on('mouseout', hideTooltip)
+      .on('click', (event, d) => {
+        const cat = d.data.category;
+        if (currentDrillCategory === cat) {
+          currentDrillCategory = null;
+          renderForCountry(currentCountry);
+        } else {
+          currentDrillCategory = cat;
+          renderDrillForCategory(currentCountry, cat);
+        }
+      });
 
-  // UPDATE + ENTER: ensure fill is updated for both entering and updating arcs
-  enter.merge(paths)
-    .attr('fill', d => color(d.data.category))
-    .attr('stroke', '#000')
-    .attr('stroke-width', 0.6)
-    .attr('stroke-linejoin', 'round')
-    .transition().duration(600)
-    .attrTween('d', arcTween);
+    // UPDATE + ENTER: ensure fill is updated for both entering and updating arcs
+    enter.merge(paths)
+      .attr('fill', d => color(d.data.category))
+      .attr('stroke', '#000')
+      .attr('stroke-width', 0.6)
+      .attr('stroke-linejoin', 'round')
+      .transition().duration(600)
+      .attrTween('d', arcTween);
 
-  // show chart title, add small badge if extended
-  const titleEl = d3.select('#chartTitle');
-  const titleParts = [country];
-  titleEl.text(titleParts.join(' › ') + (extendedMode ? '  (Mode étendu — 20)' : ''));
+    // show chart title, add small badge if extended
+    const titleEl = d3.select('#chartTitle');
+    const titleParts = [country];
+    titleEl.text(titleParts.join(' › ') + (extendedMode ? '  (Mode étendu — 20)' : ''));
 
-  renderLegend(dataset);
-  updateBreadcrumb();
+    renderLegend(dataset);
+    updateBreadcrumb();
+  });
 }
 
 function renderDrillForCategory(country, category) {
@@ -372,5 +469,97 @@ function showTooltip(event, d) {
 }
 function hideTooltip() { tooltip.style('display','none'); }
 
+import DataPipeline from "../pipeline.js";
+import { renderTreemap } from "../box/box.js";
+
+// création du pipeline global
+const pipeline = new DataPipeline();
+// expose globalement pour être lisible depuis d'autres modules
+window.pipeline = pipeline;
+
+// fonction d'initialisation
+window.initPipeline = function () {
+  pipeline.load("data/youtube.csv", "csv").then();
+};
+
+// gestion des boutons
+document.getElementById('box-btn').addEventListener('click', () => {
+  // suppression du pie si affiché
+  const pieContainer = document.getElementById('pie-container');
+  if (pieContainer) pieContainer.remove();
+
+  // affichage du treemap
+  const svgDiv = document.getElementById('svg');
+  svgDiv.style.display = '';
+  const filter = document.getElementById('filter-panel');
+  if (filter) filter.style.display = '';
+  renderTreemap();
+});
+
+document.getElementById('pie-btn').addEventListener('click', () => {
+  // cacher le treemap
+  const svgDiv = document.getElementById('svg');
+  if (svgDiv) {
+    svgDiv.innerHTML = '';
+    svgDiv.style.display = 'none';
+  }
+  // afficher le pie
+  showPie();
+  renderForCountry('Monde');
+});
+
 // expose for testing
 export { renderForCountry };
+// Create/show pie DOM and prepare the view; exported so index.js can call it.
+function showPie() {
+  // hide filter panel while pie is visible to avoid layout shifting
+  const filter = document.getElementById('filter-panel');
+  if (filter) filter.style.display = 'none';
+
+  // ensure pie UI elements are present in a dedicated container; create if missing
+  let pieContainer = document.getElementById('pie-container');
+  if (!pieContainer) {
+    const main = document.querySelector('main');
+    pieContainer = document.createElement('div');
+    pieContainer.id = 'pie-container';
+    pieContainer.style.width = '100%';
+    pieContainer.style.boxSizing = 'border-box';
+    // layout: controls on top, chart + legend in a row below
+    pieContainer.innerHTML = `
+      <div id="pie-controls">
+        <label for="countrySelect">Pays :</label>
+        <select id="countrySelect"></select>
+      </div>
+      <div id="pie-main" style="display:flex;align-items:flex-start;gap:18px;">
+        <div id="chartWrapper" style="flex:1;display:flex;flex-direction:column;align-items:center;">
+          <div id="chartTitle" class="chart-title"></div>
+          <div id="chart" tabindex="0" style="width:100%;"></div>
+        </div>
+        <aside id="legend" style="width:260px;flex:0 0 260px;"></aside>
+      </div>
+    `;
+    main.appendChild(pieContainer);
+  }
+
+  // If aggregates already exist, populate selects immediately
+  if (dataByCountry.size > 0) populateCountrySelect();
+
+  // attach a resize handler to recompute svg size and re-render
+  function onResize() {
+    if (resizeTimer) clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      // drop old svg so ensureSvg will recreate using new container size
+      if (svg) {
+        const node = svg.node && svg.node();
+        if (node && node.parentNode) node.parentNode.removeChild(node);
+        svg = null;
+      }
+      // re-render current view
+      if (currentCountry) renderForCountry(currentCountry);
+    }, 150);
+  }
+  window.removeEventListener('resize', onResize);
+  window.addEventListener('resize', onResize);
+}
+
+export { showPie };
