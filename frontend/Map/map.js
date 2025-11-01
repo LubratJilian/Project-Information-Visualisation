@@ -1,9 +1,7 @@
 import pipeline from "../index.js";
 import DataPipeline from "../pipeline.js";
 
-// ============================================================================
 // CONSTANTS
-// ============================================================================
 const ZOOM_THRESHOLD = 5;
 const COLOR_SCALE = [
   '#ffffff', '#fee5d9', '#fcbba1', '#fc9272', '#fb6a4a',
@@ -21,9 +19,8 @@ const METRIC_LABELS = {
   channelCount: 'Nombre de chaînes'
 };
 
-// ============================================================================
+
 // STATE
-// ============================================================================
 let state = {
   map: null,
   geoLayer: null,
@@ -39,9 +36,7 @@ let state = {
   visibleRanges: new Set(),  
 };
 
-// ============================================================================
 // INITIALIZATION
-// ============================================================================
 function initState() {
   state.geoLayer = null;
   state.previousCountry = undefined;
@@ -54,7 +49,7 @@ function initState() {
   state.markersCluster = null;
   state.worldStats = null;
   state.isMapMoving = false;
-  state.visibleRanges = new Set(COLOR_THRESHOLDS.map((_, i) => i));  // ← AJOUTER
+  state.visibleRanges = new Set(COLOR_THRESHOLDS.map((_, i) => i));
 
   const metricSelector = document.getElementById("metric-selector");
   metricSelector?.classList.remove("hidden");
@@ -62,9 +57,7 @@ function initState() {
   country_selector?.classList.add("hidden");
 }
 
-// ============================================================================
 // DATA FETCHING
-// ============================================================================
 async function getStatsCountry() {
   const data =  pipeline
     .groupBy('groupby_country', 'country')
@@ -95,9 +88,7 @@ async function getStatsWorld() {
   return res
 }
 
-// ============================================================================
 // METRICS UTILITIES
-// ============================================================================
 function getMetricValue(stats, metric) {
   if (!stats) return 0;
   
@@ -123,7 +114,7 @@ function calculateMinMaxValues(statsCountry, metric) {
   
   statsCountry.forEach(stats => {
     const value = getMetricValue(stats, metric);
-    if (stats && stats.channelCount > 0) { // Ignorer les pays sans données
+    if (stats && stats.channelCount > 0) { 
       if (value > max) max = value;
       if (value < min) min = value;
     }
@@ -144,13 +135,11 @@ function filterMapFields(map, ...fields) {
   );
 }
 
-// ============================================================================
 // COLOR SCALE
-// ============================================================================
 function getColorScale(value, min, max) {
   if (value === 0 || max === 0) return COLOR_SCALE[0];
   
-  const percentage = (value - min) / (max - min); // Normalisation entre min et max
+  const percentage = (value - min) / (max - min);
   
   for (let i = 0; i < COLOR_THRESHOLDS.length - 1; i++) {
     if (percentage >= COLOR_THRESHOLDS[i] && percentage < COLOR_THRESHOLDS[i + 1]) {
@@ -161,9 +150,7 @@ function getColorScale(value, min, max) {
   return COLOR_SCALE[COLOR_SCALE.length - 1];
 }
 
-// ============================================================================
 // TOOLTIPS
-// ============================================================================
 function createCountryTooltips(statsCountry, feature) {
   const countryCode = feature.properties['ISO3166-1-Alpha-2'];
   const stats = statsCountry.get(countryCode);
@@ -219,9 +206,7 @@ function createGraphTooltips(channel) {
   `;
 }
 
-// ============================================================================
 // MARKERS
-// ============================================================================
 function initializeMarkers(channelsData) {
   state.markersCluster = L.layerGroup();
   const allData = pipeline.convertMap("convert_map", "channel_id").run(["countryFilter"]);
@@ -279,9 +264,7 @@ function updateMarkersVisibility() {
   }
 }
 
-// ============================================================================
 // SVG PATTERN
-// ============================================================================
 function createDiagonalHatchPattern() {
   state.map.whenReady(() => {
     const mapSvg = document.querySelector('#svg svg');
@@ -309,9 +292,7 @@ function createDiagonalHatchPattern() {
   });
 }
 
-// ============================================================================
 // GEOJSON LAYER
-// ============================================================================
 function getCountryStyle(feature) {
   const countryCode = feature.properties["ISO3166-1-Alpha-2"];
   const stats = state.globalStatsCountry.get(countryCode);
@@ -379,7 +360,6 @@ async function loadGeoJSON() {
   const response = await fetch("./Map/countries.geojson");
   const data = await response.json();
   
-  // Build country name map
   data.features.forEach(feature => {
     const code = feature.properties["ISO3166-1-Alpha-2"];
     const name = feature.properties.name;
@@ -388,7 +368,6 @@ async function loadGeoJSON() {
     }
   });
   
-  // Create GeoJSON layer
   state.geoLayer = L.geoJSON(data, {
     style: getCountryStyle,
     onEachFeature: onEachFeature
@@ -397,15 +376,12 @@ async function loadGeoJSON() {
   applyHatchPattern();
   addLegend(state.currentMinValue, state.currentMaxValue, state.currentMetric);
   
-  // Add metric change listener
   document.getElementById('metric-choice')?.addEventListener('change', (e) => {
     updateMapColors(e.target.value);
   });
 }
 
-// ============================================================================
 // LEGEND
-// ============================================================================
 function addLegend(minValue, maxValue, metric) {
   if (state.legendControl) {
     state.map.removeControl(state.legendControl);
@@ -491,14 +467,12 @@ function updateMapVisibility(minValue, maxValue, metric) {
     const value = getMetricValue(stats, metric);
     const path = layer.getElement();
     
-    // Gérer les pays sans données
     if (!stats || stats.channelCount === 0) {
       layer.setStyle({ fillColor: "#f0f0f0", fillOpacity: 1 });
       if (path) path.style.fill = 'url(#diagonalHatch)';
       return;
     }
     
-    // Calculer la range de cette valeur
     const percentage = (value - minValue) / range;
     let rangeIndex = -1;
     for (let i = 0; i < COLOR_THRESHOLDS.length - 1; i++) {
@@ -508,7 +482,6 @@ function updateMapVisibility(minValue, maxValue, metric) {
       }
     }
     
-    // Si la range est visible, afficher normalement
     if (state.visibleRanges.has(rangeIndex)) {
       layer.setStyle({
         fillColor: getColorScale(value, minValue, maxValue),
@@ -516,7 +489,6 @@ function updateMapVisibility(minValue, maxValue, metric) {
       });
       if (path) path.style.fill = '';
     } else {
-      // Sinon, appliquer le style hachuré
       layer.setStyle({ 
         fillColor: "#f0f0f0", 
         fillOpacity: 1 
@@ -543,7 +515,7 @@ function updateMapColors(metric) {
       if (path) path.style.fill = 'url(#diagonalHatch)';
     } else {
       layer.setStyle({
-        fillColor: getColorScale(value, state.currentMinValue, state.currentMaxValue), // Ajouter min
+        fillColor: getColorScale(value, state.currentMinValue, state.currentMaxValue),
         fillOpacity: 0.7
       });
       if (path) path.style.fill = '';
@@ -553,9 +525,7 @@ function updateMapColors(metric) {
   addLegend(state.currentMinValue, state.currentMaxValue, metric);
 }
 
-// ============================================================================
 // MAP TOOLTIPS
-// ============================================================================
 function setupMapTooltips() {
   const mapTooltip = L.tooltip({
     permanent: false,
@@ -595,9 +565,7 @@ function setupMapTooltips() {
   });
 }
 
-// ============================================================================
 // MAP CREATION
-// ============================================================================
 async function createMap() {
   state.globalStatsCountry = await getStatsCountry();
   state.currentMetric = document.getElementById("metric-choice")?.value || 'maxSubscribers';
@@ -610,13 +578,10 @@ async function createMap() {
   setupMapTooltips();
 }
 
-// ============================================================================
 // SIDE PANEL
-// ============================================================================
 function showCountryPanel(countryCode, countryName) {
   const panel = document.getElementById("side-panel");
   
-  // Toggle panel if clicking same country
   if (state.previousCountry === countryCode && !panel.classList.contains("hidden")) {
     panel.classList.add("hidden");
     pipeline.removeOperation("countryFilter");
@@ -654,12 +619,11 @@ function showCountryPanel(countryCode, countryName) {
     
     content.innerText = "";
     drawBarChart(topChannels);
+    pipeline.removeOperation("countryFilter");
   }, 0);
 }
 
-// ============================================================================
 // BAR CHART
-// ============================================================================
 function drawBarChart(data) {
   const scrollContainer = document.getElementById("panel-content");
   const computedStyle = window.getComputedStyle(scrollContainer);
@@ -732,23 +696,19 @@ function drawBarChart(data) {
   scrollContainer.appendChild(svg.node());
 }
 
-// ============================================================================
 // MAP UPDATE
-// ============================================================================
 async function updateMap() {
   if (!state.map) {
     renderMap();
     return;
   }
 
-  // 1. Recalculer les statistiques avec les nouveaux filtres du pipeline
   state.globalStatsCountry = await getStatsCountry();
   state.currentMetric = document.getElementById("metric-choice")?.value || 'avgSubscribers';
   const { min, max } = calculateMinMaxValues(state.globalStatsCountry, state.currentMetric);
   state.currentMinValue = min;
   state.currentMaxValue = max;
 
-  // 2. Mettre à jour les couleurs de la carte
   if (state.geoLayer) {
     state.geoLayer.eachLayer(layer => {
       const countryCode = layer.feature.properties["ISO3166-1-Alpha-2"];
@@ -770,7 +730,6 @@ async function updateMap() {
         if (path) path.style.fill = '';
       }
 
-      // Mettre à jour le tooltip avec les nouvelles stats
       layer.unbindTooltip();
       layer.bindTooltip(
         createCountryTooltips(state.globalStatsCountry, layer.feature),
@@ -779,16 +738,13 @@ async function updateMap() {
     });
   }
   
-  // 3. Mettre à jour la légende
   addLegend(state.currentMinValue, state.currentMaxValue, state.currentMetric);
 
-  // 4. Mettre à jour les marqueurs
   if (state.markersCluster) {
     state.map.removeLayer(state.markersCluster);
     state.markersCluster.clearLayers();
   }
 
-  // Recharger les données filtrées pour les marqueurs
   const allData = pipeline.convertMap("convert_map", "channel_id").run(["countryFilter"]);
   pipeline.removeOperation("convert_map")
   
@@ -796,7 +752,6 @@ async function updateMap() {
     state.markersCluster = L.layerGroup();
     
     channelsData.forEach(channel => {
-      // Vérifier si cette chaîne est dans les données filtrées
       if (!allData.has(channel.channel_id)) return;
       
       if (!channel.latitude || !channel.longitude) return;
@@ -826,26 +781,20 @@ async function updateMap() {
     updateMarkersVisibility();
   });
 
-  // 5. Mettre à jour le tooltip mondial
   getStatsWorld().then(statsWorld => {
-    // Le tooltip mondial sera mis à jour lors du prochain mousemove
     state.worldStats = statsWorld;
   });
 
-  // 6. Mettre à jour le side panel si ouvert
   const panel = document.getElementById("side-panel");
   if (!panel.classList.contains("hidden") && state.previousCountry) {
     const countryName = state.countryNameMap.get(state.previousCountry) || "Unknown";
     showCountryPanel(state.previousCountry, countryName);
   }
 
-  // 7. Invalider la taille de la carte au cas où
   state.map.invalidateSize();
 }
 
-// ============================================================================
 // PUBLIC API
-// ============================================================================
 function renderMap() {
   if (state.map){
     updateMap().then()
