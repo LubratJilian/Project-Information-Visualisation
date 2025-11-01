@@ -35,7 +35,8 @@ let state = {
   legendControl: null,
   countryNameMap: new Map(),
   markersCluster: null,
-  isMapMoving: false
+  isMapMoving: false,
+  visibleRanges: new Set(),  
 };
 
 // ============================================================================
@@ -53,7 +54,8 @@ function initState() {
   state.markersCluster = null;
   state.worldStats = null;
   state.isMapMoving = false;
-  
+  state.visibleRanges = new Set(COLOR_THRESHOLDS.map((_, i) => i));  // ← AJOUTER
+
   const metricSelector = document.getElementById("metric-selector");
   metricSelector?.classList.remove("hidden");
   const country_selector = document.getElementById("country-selector");
@@ -412,28 +414,116 @@ function addLegend(minValue, maxValue, metric) {
   state.legendControl = L.control({ position: 'bottomright' });
   
   state.legendControl.onAdd = () => {
-    const div = L.DomUtil.create('div', 'info legend');
+    const div = L.DomUtil.create('div', 'info legend clickable-legend');
     const format = d3.format(".2s");
     
     div.innerHTML = `<h4>${getMetricLabel(metric)}</h4>`;
-    div.innerHTML += '<i style="background: repeating-linear-gradient(-45deg, #f0f0f0, #f0f0f0 3px, #999 3px, #999 4px); width: 18px; height: 18px; display: inline-block; margin-right: 5px; border: 1px solid #999;"></i> Pas de données<br>';
+    div.innerHTML += `
+      <div class="" data-range="no-data" style="cursor: pointer; opacity: '1'};">
+        <i style="background: repeating-linear-gradient(-45deg, #f0f0f0, #f0f0f0 3px, #999 3px, #999 4px); width: 18px; height: 18px; display: inline-block; margin-right: 5px; border: 1px solid #999;"></i>
+        Pas de données
+      </div>
+    `;
     
     const range = maxValue - minValue;
     
     for (let i = 0; i < COLOR_THRESHOLDS.length - 1; i++) {
       const minVal = minValue + (COLOR_THRESHOLDS[i] * range);
       const maxVal = minValue + (COLOR_THRESHOLDS[i + 1] * range);
+      const isVisible = state.visibleRanges.has(i);
       
       div.innerHTML += `
-        <i style="background:${getColorScale(minVal + 1, minValue, maxValue)}; width: 18px; height: 18px; display: inline-block; margin-right: 5px; border: 1px solid #999;"></i>
-        ${format(minVal)} – ${format(maxVal)}<br>
+        <div class="legend-item" data-range="${i}" style="cursor: pointer; opacity: ${isVisible ? '1' : '0.3'};">
+          <i style="background:${getColorScale(minVal + 1, minValue, maxValue)}; width: 18px; height: 18px; display: inline-block; margin-right: 5px; border: 1px solid #999;"></i>
+          ${format(minVal)} – ${format(maxVal)}
+        </div>
       `;
     }
+
+    L.DomEvent.disableClickPropagation(div);
+    L.DomEvent.disableScrollPropagation(div);
+    div.style.pointerEvents = 'auto';
+    L.DomEvent.on(div, 'mouseenter', L.DomEvent.stopPropagation);
+    L.DomEvent.on(div, 'mousemove', L.DomEvent.stopPropagation);
+
+    L.DomEvent.on(div, 'mouseover', e => {
+      L.DomEvent.stopPropagation(e);
+
+      // 🔥 Ferme toutes les tooltips actives
+      state.geoLayer.eachLayer(layer => {
+        if (layer.closeTooltip) {
+          layer.closeTooltip();
+        }
+      });
+    });
+    
+    setTimeout(() => {
+      div.querySelectorAll('.legend-item').forEach(item => {
+        item.addEventListener('click', function() {
+          const rangeValue = this.dataset.range;
+          const rangeIndex = parseInt(rangeValue);
+          
+          if (state.visibleRanges.has(rangeIndex)) {
+            state.visibleRanges.delete(rangeIndex);
+            this.style.opacity = '0.3';
+          } else {
+            state.visibleRanges.add(rangeIndex);
+            this.style.opacity = '1';
+          }
+          
+          updateMapVisibility(minValue, maxValue, metric);
+        });
+      });
+    }, 100);
     
     return div;
   };
   
   state.legendControl.addTo(state.map);
+}
+
+function updateMapVisibility(minValue, maxValue, metric) {
+  const range = maxValue - minValue;
+  
+  state.geoLayer.eachLayer(layer => {
+    const countryCode = layer.feature.properties["ISO3166-1-Alpha-2"];
+    const stats = state.globalStatsCountry.get(countryCode);
+    const value = getMetricValue(stats, metric);
+    const path = layer.getElement();
+    
+    // Gérer les pays sans données
+    if (!stats || stats.channelCount === 0) {
+      layer.setStyle({ fillColor: "#f0f0f0", fillOpacity: 1 });
+      if (path) path.style.fill = 'url(#diagonalHatch)';
+      return;
+    }
+    
+    // Calculer la range de cette valeur
+    const percentage = (value - minValue) / range;
+    let rangeIndex = -1;
+    for (let i = 0; i < COLOR_THRESHOLDS.length - 1; i++) {
+      if (percentage >= COLOR_THRESHOLDS[i] && percentage <= COLOR_THRESHOLDS[i + 1]) {
+        rangeIndex = i;
+        break;
+      }
+    }
+    
+    // Si la range est visible, afficher normalement
+    if (state.visibleRanges.has(rangeIndex)) {
+      layer.setStyle({
+        fillColor: getColorScale(value, minValue, maxValue),
+        fillOpacity: 0.7
+      });
+      if (path) path.style.fill = '';
+    } else {
+      // Sinon, appliquer le style hachuré
+      layer.setStyle({ 
+        fillColor: "#f0f0f0", 
+        fillOpacity: 1 
+      });
+      if (path) path.style.fill = 'url(#diagonalHatch)';
+    }
+  });
 }
 
 function updateMapColors(metric) {
