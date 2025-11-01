@@ -249,9 +249,8 @@ function resetFilters() {
     document.getElementById('maxDate').value = state.filters.maxDate;
     document.getElementById('topK').value = state.filters.topK;
 
-    if(state.visualization === "map"){
+    if(state.visualization === "map")
         document.getElementById('metric-choice').value = 'maxSubscribers';
-    }
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
