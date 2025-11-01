@@ -56,6 +56,8 @@ function initializeFilters(data) {
     bindInput('minDate', 'minDate');
     bindInput('maxDate', 'maxDate');
     bindInput('topK', 'topK', 'number');
+    bindInput('topKCountries', 'topKCountries', 'number');
+    bindInput('topKCategories', 'topKCategories', 'number');
 
     defaultFilters = {
         selectedCountries: [],
@@ -66,7 +68,9 @@ function initializeFilters(data) {
         maxVideos: videosMax,
         minDate: '2005-01-01',
         maxDate: new Date().toISOString().split('T')[0],
-        topK: 100
+        topK: 100,
+        topKCountries: 0,
+        topKCategories: 0
     };
 
     state.filters = {...defaultFilters};
@@ -249,6 +253,8 @@ function resetFilters() {
     document.getElementById('minDate').value = state.filters.minDate;
     document.getElementById('maxDate').value = state.filters.maxDate;
     document.getElementById('topK').value = state.filters.topK;
+    document.getElementById('topKCountries').value = state.filters.topKCountries;
+    document.getElementById('topKCategories').value = state.filters.topKCategories;
 
     pipeline.clearOperations();
     renderers.get(state.visualization)();
@@ -282,6 +288,8 @@ document.getElementById('applyFilters').addEventListener('click', () => {
         .filter('subscriberFilter', d => +d.subscriber_count >= f.minSubscribers && +d.subscriber_count <= f.maxSubscribers)
         .filter('videoFilter', d => +d.video_count >= f.minVideos && +d.video_count <= f.maxVideos)
         .filter('dateFilter', d => new Date(d.created_date) >= new Date(f.minDate) && new Date(d.created_date) <= new Date(f.maxDate))
+        .topKBy('topKCountries', 'country', f.topKCountries, 'subscriber_count')
+        .topKBy('topKCategories', 'category', f.topKCategories, 'subscriber_count')
         .sortBy('sortBy', 'subscriber_count', false)
         .limit('topK', f.topK);
 

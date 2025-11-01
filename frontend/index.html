@@ -39,7 +39,7 @@
                     <div class="multi-select-dropdown" id="categoryDropdown"></div>
                 </div>
 
-                <label>Nombre d'abonnés :</label>
+                <span>Nombre d'abonnés :</span>
                 <div class="double-slider">
                     <input type="range" id="minSubs" min="0" max="10000000" step="10000" value="0">
                     <input type="range" id="maxSubs" min="0" max="10000000" step="10000" value="10000000">
@@ -50,7 +50,7 @@
                     <input type="number" id="maxSubsInput" placeholder="Max">
                 </div>
 
-                <label>Nombre de vidéos :</label>
+                <span>Nombre de vidéos :</span>
                 <div class="double-slider">
                     <input type="range" id="minVideos" min="0" max="10000" step="10" value="0">
                     <input type="range" id="maxVideos" min="0" max="10000" step="10" value="10000">
@@ -70,8 +70,14 @@
                 <label for="topK">Top K :</label>
                 <input type="number" id="topK" min="1" max="100" value="15">
 
+                <label for="topKCountries">Top K Pays:</label>
+                <input type="number" id="topKCountries" min="1" value="0" placeholder="0 = tous">
+
+                <label for="topKCategories">Top K Catégories:</label>
+                <input type="number" id="topKCategories" min="1" value="0" placeholder="0 = tous">
+
                 <button id="applyFilters">Appliquer les filtres</button>
-                <button id="resetFilters">Annuler les filtres</button>
+                <button id="resetFilters">Réinitialiser les filtres</button>
             </div>
         </div>
     </main>
