@@ -16,6 +16,7 @@ const METRIC_LABELS = {
   avgSubscribers: 'Abonnés moyens par chaînes',
   totalSubscribers: 'Total d\'abonnés',
   avgVideos: 'Vidéos moyennes par chaînes',
+  maxSubscribers: 'Abonnés maximum (plus grosse chaîne)',
   totalVideos: 'Total de vidéos',
   channelCount: 'Nombre de chaînes'
 };
@@ -27,12 +28,14 @@ let state = {
   map: null,
   geoLayer: null,
   previousCountry: undefined,
-  currentMetric: 'avgSubscribers',
+  currentMetric: 'maxSubscribers',
   globalStatsCountry: null,
   currentMaxValue: 0,
+  currentMinValue: 0,
   legendControl: null,
   countryNameMap: new Map(),
-  markersCluster: null
+  markersCluster: null,
+  isMapMoving: false
 };
 
 // ============================================================================
@@ -41,48 +44,53 @@ let state = {
 function initState() {
   state.geoLayer = null;
   state.previousCountry = undefined;
-  state.currentMetric = 'avgSubscribers';
+  state.currentMetric = 'maxSubscribers';
   state.globalStatsCountry = null;
   state.currentMaxValue = 0;
+  state.currentMinValue = 0;
   state.legendControl = null;
   state.countryNameMap = new Map();
   state.markersCluster = null;
+  state.worldStats = null;
+  state.isMapMoving = false;
   
   const metricSelector = document.getElementById("metric-selector");
   metricSelector?.classList.remove("hidden");
+  const country_selector = document.getElementById("country-selector");
+  country_selector?.classList.add("hidden");
 }
 
 // ============================================================================
 // DATA FETCHING
 // ============================================================================
 async function getStatsCountry() {
-  const pipe = new DataPipeline();
-  await pipe.load("../data/youtube.csv", "csv");
-  
-  return pipe
-    .groupBy('country', 'country')
+  const data =  pipeline
+    .groupBy('groupby_country', 'country')
     .aggregate("channels_data", channels => ({
       channelCount: channels.length,
       avgSubscribers: d3.mean(channels, d => +d.subscriber_count),
       totalSubscribers: d3.sum(channels, d => +d.subscriber_count),
+      maxSubscribers: d3.max(channels, d => +d.subscriber_count),
       avgVideos: d3.mean(channels, d => +d.video_count),
       totalVideos: d3.sum(channels, d => +d.video_count),
     }), true)
-    .run();
+    .run(["convert_map"]);
+  pipeline.removeOperation('groupby_country');
+  pipeline.removeOperation("channels_data");
+  return data
 }
 
 async function getStatsWorld() {
-  const pipe = new DataPipeline();
-  await pipe.load("../data/youtube.csv", "csv");
-  
-  return pipe.addOperation("calculateStats", data => ({
+  const res =  pipeline.addOperation("calculateStats", data => ({
     totalChannels: data.length,
     avgSubscribers: d3.mean(data, d => +d.subscriber_count),
     totalSubscribers: d3.sum(data, d => +d.subscriber_count),
     avgVideos: d3.mean(data, d => +d.video_count),
     totalVideos: d3.sum(data, d => +d.video_count),
     countries: new Set(data.map(d => d.country)).size
-  })).run();
+  })).run(["convert_map"]);
+  pipeline.removeOperation("calculateStats");
+  return res
 }
 
 // ============================================================================
@@ -95,6 +103,7 @@ function getMetricValue(stats, metric) {
     avgSubscribers: () => stats.avgSubscribers || 0,
     totalSubscribers: () => (stats.channelCount * stats.avgSubscribers) || 0,
     avgVideos: () => stats.avgVideos || 0,
+    maxSubscribers: () => stats.maxSubscribers || 0,
     totalVideos: () => (stats.channelCount * stats.avgVideos) || 0,
     channelCount: () => stats.channelCount || 0
   };
@@ -106,22 +115,40 @@ function getMetricLabel(metric) {
   return METRIC_LABELS[metric] || metric;
 }
 
-function calculateMaxValue(statsCountry, metric) {
+function calculateMinMaxValues(statsCountry, metric) {
   let max = 0;
+  let min = Infinity;
+  
   statsCountry.forEach(stats => {
     const value = getMetricValue(stats, metric);
-    if (value > max) max = value;
+    if (stats && stats.channelCount > 0) { // Ignorer les pays sans données
+      if (value > max) max = value;
+      if (value < min) min = value;
+    }
   });
-  return max;
+  
+  return { min: min === Infinity ? 0 : min, max };
+}
+
+function filterMapFields(map, ...fields) {
+  return new Map(
+    Array.from(map, ([key, value]) => [
+      key,
+      fields.reduce((obj, field) => {
+        obj[field] = value[field];
+        return obj;
+      }, {})
+    ])
+  );
 }
 
 // ============================================================================
 // COLOR SCALE
 // ============================================================================
-function getColorScale(value, max) {
+function getColorScale(value, min, max) {
   if (value === 0 || max === 0) return COLOR_SCALE[0];
   
-  const percentage = value / max;
+  const percentage = (value - min) / (max - min); // Normalisation entre min et max
   
   for (let i = 0; i < COLOR_THRESHOLDS.length - 1; i++) {
     if (percentage >= COLOR_THRESHOLDS[i] && percentage < COLOR_THRESHOLDS[i + 1]) {
@@ -150,6 +177,7 @@ function createCountryTooltips(statsCountry, feature) {
     <br>📊 Nombre total chaînes : ${getValue('channelCount')}
     <br>👥 Abonnés moyens par chaîne : ${getValue('avgSubscribers')}
     <br>👥 Nombre total d'abonnés : ${getValue('totalSubscribers')}
+    <br>⭐ Plus grosse chaîne : ${getValue('maxSubscribers')} abonnés
     <br>🎥 Vidéos moyennes par chaîne : ${getValue('avgVideos')}
     <br>🎥 Nombre total de vidéos : ${getValue('totalVideos')}
   `;
@@ -195,7 +223,7 @@ function createGraphTooltips(channel) {
 function initializeMarkers(channelsData) {
   state.markersCluster = L.layerGroup();
   const allData = pipeline.convertMap("convert_map", "channel_id").run(["countryFilter"]);
-  
+  pipeline.removeOperation("convert_map")
   channelsData.forEach(channel => {
     if (!channel.latitude || !channel.longitude) return;
     
@@ -212,11 +240,24 @@ function initializeMarkers(channelsData) {
       opacity: 1,
       fillOpacity: 0.8
     });
-    
+
     marker.bindTooltip(
       createGraphTooltips(allData.get(channel.channel_id)), 
-      { permanent: false, sticky: true, direction: "auto" }
+      { permanent: false, sticky: true, direction: "auto",interactive: false }
     );
+
+    marker.off('mouseover');
+    marker.off('mouseout');
+
+    marker.on('mouseover', function(e) {
+      if (!state.isMapMoving) {
+        this.openTooltip();
+      }
+    });
+    
+    marker.on('mouseout', function(e) {
+      this.closeTooltip();
+    });
     
     marker.addTo(state.markersCluster);
   });
@@ -287,7 +328,7 @@ function getCountryStyle(feature) {
   return {
     color: "#333333",
     weight: 1,
-    fillColor: getColorScale(value, state.currentMaxValue),
+    fillColor: getColorScale(value, state.currentMinValue, state.currentMaxValue),
     fillOpacity: 0.7
   };
 }
@@ -297,8 +338,21 @@ function onEachFeature(feature, layer) {
   
   layer.bindTooltip(
     createCountryTooltips(state.globalStatsCountry, feature),
-    { permanent: false, sticky: true, direction: "auto" }
+    { permanent: false, sticky: true, direction: "auto", interactive: false }
   );
+
+  layer.off('mouseover');
+  layer.off('mouseout');
+
+  layer.on('mouseover', function(e) {
+    if (!state.isMapMoving) {
+      this.openTooltip();
+    }
+  });
+  
+  layer.on('mouseout', function(e) {
+    this.closeTooltip();
+  });
   
   layer.on('click', () => {
     const countryCode = feature.properties["ISO3166-1-Alpha-2"];
@@ -339,7 +393,7 @@ async function loadGeoJSON() {
   }).addTo(state.map);
   
   applyHatchPattern();
-  addLegend(state.currentMaxValue, state.currentMetric);
+  addLegend(state.currentMinValue, state.currentMaxValue, state.currentMetric);
   
   // Add metric change listener
   document.getElementById('metric-choice')?.addEventListener('change', (e) => {
@@ -350,7 +404,7 @@ async function loadGeoJSON() {
 // ============================================================================
 // LEGEND
 // ============================================================================
-function addLegend(maxValue, metric) {
+function addLegend(minValue, maxValue, metric) {
   if (state.legendControl) {
     state.map.removeControl(state.legendControl);
   }
@@ -364,14 +418,15 @@ function addLegend(maxValue, metric) {
     div.innerHTML = `<h4>${getMetricLabel(metric)}</h4>`;
     div.innerHTML += '<i style="background: repeating-linear-gradient(-45deg, #f0f0f0, #f0f0f0 3px, #999 3px, #999 4px); width: 18px; height: 18px; display: inline-block; margin-right: 5px; border: 1px solid #999;"></i> Pas de données<br>';
     
+    const range = maxValue - minValue;
+    
     for (let i = 0; i < COLOR_THRESHOLDS.length - 1; i++) {
-      const minValue = COLOR_THRESHOLDS[i] * maxValue || 1.0;
-      const maxVal = COLOR_THRESHOLDS[i + 1] * maxValue;
+      const minVal = minValue + (COLOR_THRESHOLDS[i] * range);
+      const maxVal = minValue + (COLOR_THRESHOLDS[i + 1] * range);
       
       div.innerHTML += `
-        <i style="background:${getColorScale(minValue + 1, maxValue)}; width: 18px; height: 18px; display: inline-block; margin-right: 5px; border: 1px solid #999;"></i>
-        ${format(minValue)} – ${format(maxVal)}
-        <span style="color: #666;">(${LEGEND_LABELS[i]})</span><br>
+        <i style="background:${getColorScale(minVal + 1, minValue, maxValue)}; width: 18px; height: 18px; display: inline-block; margin-right: 5px; border: 1px solid #999;"></i>
+        ${format(minVal)} – ${format(maxVal)}<br>
       `;
     }
     
@@ -383,7 +438,9 @@ function addLegend(maxValue, metric) {
 
 function updateMapColors(metric) {
   state.currentMetric = metric;
-  state.currentMaxValue = calculateMaxValue(state.globalStatsCountry, metric);
+  const { min, max } = calculateMinMaxValues(state.globalStatsCountry, metric); 
+  state.currentMinValue = min;
+  state.currentMaxValue = max;
   
   state.geoLayer.eachLayer(layer => {
     const countryCode = layer.feature.properties["ISO3166-1-Alpha-2"];
@@ -396,14 +453,14 @@ function updateMapColors(metric) {
       if (path) path.style.fill = 'url(#diagonalHatch)';
     } else {
       layer.setStyle({
-        fillColor: getColorScale(value, state.currentMaxValue),
+        fillColor: getColorScale(value, state.currentMinValue, state.currentMaxValue), // Ajouter min
         fillOpacity: 0.7
       });
       if (path) path.style.fill = '';
     }
   });
   
-  addLegend(state.currentMaxValue, metric);
+  addLegend(state.currentMinValue, state.currentMaxValue, metric);
 }
 
 // ============================================================================
@@ -417,11 +474,20 @@ function setupMapTooltips() {
   });
   
   getStatsWorld().then(data => {
+    state.worldStats = data;
     mapTooltip.setContent(createWorldTooltips(data));
   });
   
   state.map.on('mousemove', (e) => {
+    if (state.isMapMoving) {
+      state.map.removeLayer(mapTooltip); 
+      return;
+    }
+
     if (!e.originalEvent.target.closest('.leaflet-interactive')) {
+      if (state.worldStats) {
+        mapTooltip.setContent(createWorldTooltips(state.worldStats));
+      }
       mapTooltip.setLatLng(e.latlng).addTo(state.map);
     } else {
       state.map.removeLayer(mapTooltip);
@@ -444,8 +510,10 @@ function setupMapTooltips() {
 // ============================================================================
 async function createMap() {
   state.globalStatsCountry = await getStatsCountry();
-  state.currentMetric = document.getElementById("metric-choice")?.value || 'avgSubscribers';
-  state.currentMaxValue = calculateMaxValue(state.globalStatsCountry, state.currentMetric);
+  state.currentMetric = document.getElementById("metric-choice")?.value || 'maxSubscribers';
+  const { min, max } = calculateMinMaxValues(state.globalStatsCountry, state.currentMetric);
+  state.currentMinValue = min;
+  state.currentMaxValue = max
   
   createDiagonalHatchPattern();
   await loadGeoJSON();
@@ -575,9 +643,125 @@ function drawBarChart(data) {
 }
 
 // ============================================================================
+// MAP UPDATE
+// ============================================================================
+async function updateMap() {
+  if (!state.map) {
+    renderMap();
+    return;
+  }
+
+  // 1. Recalculer les statistiques avec les nouveaux filtres du pipeline
+  state.globalStatsCountry = await getStatsCountry();
+  state.currentMetric = document.getElementById("metric-choice")?.value || 'avgSubscribers';
+  const { min, max } = calculateMinMaxValues(state.globalStatsCountry, state.currentMetric);
+  state.currentMinValue = min;
+  state.currentMaxValue = max;
+
+  // 2. Mettre à jour les couleurs de la carte
+  if (state.geoLayer) {
+    state.geoLayer.eachLayer(layer => {
+      const countryCode = layer.feature.properties["ISO3166-1-Alpha-2"];
+      const stats = state.globalStatsCountry.get(countryCode);
+      const value = getMetricValue(stats, state.currentMetric);
+      const path = layer.getElement();
+
+      if (!stats || stats.channelCount === 0) {
+        layer.setStyle({ 
+          fillColor: "#f0f0f0", 
+          fillOpacity: 1 
+        });
+        if (path) path.style.fill = 'url(#diagonalHatch)';
+      } else {
+        layer.setStyle({
+          fillColor: getColorScale(value, state.currentMinValue, state.currentMaxValue),
+          fillOpacity: 0.7
+        });
+        if (path) path.style.fill = '';
+      }
+
+      // Mettre à jour le tooltip avec les nouvelles stats
+      layer.unbindTooltip();
+      layer.bindTooltip(
+        createCountryTooltips(state.globalStatsCountry, layer.feature),
+        { permanent: false, sticky: true, direction: "auto" }
+      );
+    });
+  }
+  
+  // 3. Mettre à jour la légende
+  addLegend(state.currentMinValue, state.currentMaxValue, state.currentMetric);
+
+  // 4. Mettre à jour les marqueurs
+  if (state.markersCluster) {
+    state.map.removeLayer(state.markersCluster);
+    state.markersCluster.clearLayers();
+  }
+
+  // Recharger les données filtrées pour les marqueurs
+  const allData = pipeline.convertMap("convert_map", "channel_id").run(["countryFilter"]);
+  pipeline.removeOperation("convert_map")
+  
+  d3.csv("./Map/channels_with_coordinates.csv").then(channelsData => {
+    state.markersCluster = L.layerGroup();
+    
+    channelsData.forEach(channel => {
+      // Vérifier si cette chaîne est dans les données filtrées
+      if (!allData.has(channel.channel_id)) return;
+      
+      if (!channel.latitude || !channel.longitude) return;
+      
+      const lat = parseFloat(channel.latitude);
+      const lon = parseFloat(channel.longitude);
+      
+      if (isNaN(lat) || isNaN(lon)) return;
+      
+      const marker = L.circleMarker([lat, lon], {
+        radius: 6,
+        fillColor: "#ff0000",
+        color: "#fff",
+        weight: 1,
+        opacity: 1,
+        fillOpacity: 0.8
+      });
+      
+      marker.bindTooltip(
+        createGraphTooltips(allData.get(channel.channel_id)), 
+        { permanent: false, sticky: true, direction: "auto" }
+      );
+      
+      marker.addTo(state.markersCluster);
+    });
+    
+    updateMarkersVisibility();
+  });
+
+  // 5. Mettre à jour le tooltip mondial
+  getStatsWorld().then(statsWorld => {
+    // Le tooltip mondial sera mis à jour lors du prochain mousemove
+    state.worldStats = statsWorld;
+  });
+
+  // 6. Mettre à jour le side panel si ouvert
+  const panel = document.getElementById("side-panel");
+  if (!panel.classList.contains("hidden") && state.previousCountry) {
+    const countryName = state.countryNameMap.get(state.previousCountry) || "Unknown";
+    showCountryPanel(state.previousCountry, countryName);
+  }
+
+  // 7. Invalider la taille de la carte au cas où
+  state.map.invalidateSize();
+}
+
+// ============================================================================
 // PUBLIC API
 // ============================================================================
 function renderMap() {
+  if (state.map){
+    updateMap().then()
+    return
+  }
+
   const container = document.getElementById('svg');
   container.innerHTML = '';
   
@@ -587,13 +771,44 @@ function renderMap() {
     maxBounds: [[-90, -250], [90, 250]],
     maxBoundsViscosity: 1.0,
     worldCopyJump: true,
-    minZoom: 1
+    minZoom: 1,
+    inertia: false
   }).setView([20, 0], 2);
   
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap contributors'
   }).addTo(state.map);
   
+  state.map.on('movestart dragstart zoomstart', () => {
+    state.isMapMoving = true;
+    state.map.eachLayer(layer => {
+      if (layer.closeTooltip) {
+        layer.closeTooltip();
+      }
+    });
+  });
+
+  state.map.on('moveend dragend zoomend', () => {
+    setTimeout(() => {
+      state.isMapMoving = false;
+    }, 150);
+  });
+
+  state.map.on('zoomstart', () => {
+    state.isMapMoving = true;
+    state.map.eachLayer(layer => {
+      if (layer.getTooltip && layer.getTooltip()) {
+        layer.closeTooltip();
+      }
+    });
+  });
+
+  state.map.on('zoomend', () => {
+    setTimeout(() => {
+      state.isMapMoving = false;
+    }, 100);
+  });
+
   pipeline.load("../data/youtube.csv", "csv").then(() => {
     pipeline.run();
     
@@ -608,14 +823,30 @@ function renderMap() {
 function clearMap() {
   const metricSelector = document.getElementById("metric-selector");
   const sidePanel = document.getElementById("side-panel");
+  const country_selector = document.getElementById("country-selector");
   
   metricSelector?.classList.add("hidden");
   sidePanel?.classList.add("hidden");
+  country_selector?.classList.remove("hidden");
   
   if (state.map) {
     state.map.remove();
     state.map = null;
   }
+
+  pipeline.removeOperation("convert_map");
 }
 
-export { renderMap, clearMap };
+function getGlobalStatsCountry(columns){
+  let data;
+  if(columns)
+    data = filterMapFields(state.globalStatsCountry,columns)
+  else
+    data =  state.globalStatsCountry;
+  return Array.from(data, ([key, value]) => ({
+    country: key,
+    ...value
+  }));
+}
+
+export { renderMap, clearMap, getGlobalStatsCountry };

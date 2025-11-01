@@ -23,13 +23,29 @@
         <div id="filter-panel">
             <div id="filter-toggle">Filtre</div>
             <div class="filter-content">
-                <label for="countryDropdown">Pays :</label>
-                <div class="multi-select-container">
-                    <button class="multi-select-trigger" id="countryTrigger">
-                        <span class="selected-text" id="selected-countries">Tous les pays</span>
-                        <span class="arrow">▼</span>
-                    </button>
-                    <div class="multi-select-dropdown" id="countryDropdown"></div>
+                <div id="metric-selector" class="hidden">
+                    <label for="metric-choice">Choix de la mesure :</label>
+                    <div>
+                        <select id="metric-choice">
+                            <option value="maxSubscribers">Plus grosse chaîne (abonnés max)</option>
+                            <option value="avgSubscribers">Abonnés moyens par chaînes</option>
+                            <option value="totalSubscribers">Total d'abonnés</option>
+                            <option value="avgVideos">Vidéos moyennes par chaînes</option>
+                            <option value="totalVideos">Total de vidéos</option>
+                            <option value="channelCount">Nombre de chaînes</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="country-selector">
+                    <label for="countryDropdown">Pays :</label>
+                    <div class="multi-select-container">
+                        <button class="multi-select-trigger" id="countryTrigger">
+                            <span class="selected-text" id="selected-countries">Tous les pays</span>
+                            <span class="arrow">▼</span>
+                        </button>
+                        <div class="multi-select-dropdown" id="countryDropdown"></div>
+                    </div>
                 </div>
 
                 <label for="categoryDropdown">Catégories :</label>
@@ -75,17 +91,6 @@
                 <button id="applyFilters">Appliquer les filtres</button>
                 <button id="resetFilters">Annuler les filtres</button>
             </div>
-        </div>
-
-        <div id="metric-selector" class="hidden">
-            <label for="metric-choice">Afficher :</label>
-            <select id="metric-choice">
-                <option value="avgSubscribers">Abonnés moyens par chaînes</option>
-                <option value="totalSubscribers">Total d'abonnés</option>
-                <option value="avgVideos">Vidéos moyennes par chaînes</option>
-                <option value="totalVideos">Total de vidéos</option>
-                <option value="channelCount">Nombre de chaînes</option>
-            </select>
         </div>
         <aside id="side-panel" class="hidden">
             <button id="close-panel" onclick="closeSidePanel()">✖</button>

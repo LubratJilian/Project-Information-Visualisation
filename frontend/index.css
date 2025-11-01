@@ -70,7 +70,6 @@ main {
     display: grid;
     grid-template-columns: 1fr auto;
     position: relative;
-    min-height: 30em;
     padding: 2rem 1rem;
     margin: 0 auto;
     gap: 1rem;
@@ -87,6 +86,10 @@ main {
                 flex-direction: column;
                 width: 100%;
                 gap: 0.5em;
+
+                #country-selector.hidden{
+                    display: none;
+                }
 
                 .multi-select-container {
                     position: relative;

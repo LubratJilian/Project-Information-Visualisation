@@ -1,6 +1,6 @@
 import DataPipeline from "./pipeline.js";
 import {renderTreemap} from "./box/box.js";
-import {renderMap,clearMap} from "./Map/map.js"
+import {renderMap,clearMap, getGlobalStatsCountry} from "./Map/map.js"
 import {renderBubbleChart} from "./bubble/bubble.js";
 
 const pipeline = new DataPipeline();
@@ -28,6 +28,7 @@ async function initPipeline() {
 }
 
 function initializeFilters(data) {
+    console.log(data)
     const countries = [...new Set(data.map(d => d.country))].sort((a, b) => a.localeCompare(b));
 
     const categories = [...new Set(data.flatMap(d => {
@@ -250,6 +251,11 @@ function resetFilters() {
     document.getElementById('topK').value = state.filters.topK;
 
     pipeline.clearOperations();
+
+    if(state.visualization === map){
+        document.getElementById('metric-choice').value = 'maxSubscribers';
+    }
+
     renderers.get(state.visualization)();
 }
 
@@ -259,18 +265,27 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 document.getElementById('box-btn').addEventListener('click', () => {
     clearMap();
-
+    console.log(pipeline)
     state.visualization = 'treemap';
     renderers.get(state.visualization)();
 });
 
 document.getElementById('bubbles-btn').addEventListener('click', () => {
+    clearMap();
+    console.log(pipeline)
+
     state.visualization = 'bubble';
     renderers.get(state.visualization)();
 });
 
 document.getElementById('applyFilters').addEventListener('click', () => {
-    pipeline.clearOperations();
+    pipeline.removeOperation('countryFilter');
+    pipeline.removeOperation('categoryFilter');
+    pipeline.removeOperation('subscriberFilter');
+    pipeline.removeOperation('dateFilter');
+    pipeline.removeOperation('sortBy');
+    pipeline.removeOperation('topK');
+
     const f = state.filters;
 
     pipeline
@@ -285,12 +300,17 @@ document.getElementById('applyFilters').addEventListener('click', () => {
         .filter('dateFilter', d => new Date(d.created_date) >= new Date(f.minDate) && new Date(d.created_date) <= new Date(f.maxDate))
         .sortBy('sortBy', 'subscriber_count', false)
         .limit('topK', f.topK);
-
+    console.log(pipeline)
     renderers.get(state.visualization)();
 });
 
 document.getElementById('resetFilters').addEventListener('click', () => {
-    pipeline.clearOperations();
+    pipeline.removeOperation('countryFilter');
+    pipeline.removeOperation('categoryFilter');
+    pipeline.removeOperation('subscriberFilter');
+    pipeline.removeOperation('dateFilter');
+    pipeline.removeOperation('sortBy');
+    pipeline.removeOperation('topK');
     resetFilters();
     renderers.get(state.visualization)();
 });
@@ -302,15 +322,67 @@ document.getElementById("filter-toggle").addEventListener("click", () => {
 
 document.getElementById('map-btn').addEventListener('click', () => {
     clearMap();
-    renderMap();
+    state.visualization = 'map';
+    renderers.get(state.visualization)();
+});
+
+function updateFiltersForMetric(statsMap, metricKey) {
+  // Définir quel slider utiliser selon la métrique
+  const isVideoMetric = metricKey === 'avgVideos' || metricKey === 'totalVideos';
+  
+  const sliderConfig = isVideoMetric ? {
+    min: 'minVideos',
+    max: 'maxVideos',
+    minInput: 'minVideosInput',
+    maxInput: 'maxVideosInput',
+    minFilter: 'minVideos',
+    maxFilter: 'maxVideos',
+    label: 'Nombre de vidéos'
+  } : {
+    min: 'minSubs',
+    max: 'maxSubs',
+    minInput: 'minSubsInput',
+    maxInput: 'maxSubsInput',
+    minFilter: 'minSubscribers',
+    maxFilter: 'maxSubscribers',
+    label: 'Nombre d\'abonnés'
+  };
+  
+  // Extraire les valeurs
+  const values = Array.from(statsMap.values())
+    .map(stats => stats[metricKey])
+    .filter(n => !Number.isNaN(n) && n !== undefined);
+  
+  const minValue = Math.min(...values);
+  const maxValue = Math.max(...values);
+  
+  // Mettre à jour le slider
+  bindDoubleSlider(
+    sliderConfig.min,
+    sliderConfig.max,
+    sliderConfig.minInput,
+    sliderConfig.maxInput,
+    sliderConfig.minFilter,
+    sliderConfig.maxFilter,
+    minValue,
+    maxValue
+  );
+  
+  // Mettre à jour les filtres
+  state.filters[sliderConfig.minFilter] = minValue;
+  state.filters[sliderConfig.maxFilter] = maxValue;
+}
+
+document.getElementById('metric-choice')?.addEventListener('change', async (e) => {
+    if(e.target.value === "channelCount")
+        return initializeFilters(pipeline.run())
+    updateFiltersForMetric(getGlobalStatsCountry(e.target.value), e.target.value);
 });
 
 window.closeSidePanel = function () {
-    /*if (window.cancelImageLoading) {
-        window.cancelImageLoading();
-    }*/
     const panel = document.getElementById("side-panel");
     panel.classList.add("hidden");
+    pipeline.removeOperation("countryFilter")
 }
 
 export default pipeline;
