@@ -80,6 +80,7 @@ main {
     #svg {
         height: 100%;
         width: 100%;
+        min-height: 0;
     }
 
     &.open {
