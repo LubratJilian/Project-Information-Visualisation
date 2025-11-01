@@ -28,7 +28,6 @@ async function initPipeline() {
 }
 
 function initializeFilters(data) {
-    console.log(data)
     const countries = [...new Set(data.map(d => d.country))].sort((a, b) => a.localeCompare(b));
 
     const categories = [...new Set(data.flatMap(d => {
@@ -265,15 +264,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 document.getElementById('box-btn').addEventListener('click', () => {
     clearMap();
-    console.log(pipeline)
     state.visualization = 'treemap';
     renderers.get(state.visualization)();
 });
 
 document.getElementById('bubbles-btn').addEventListener('click', () => {
     clearMap();
-    console.log(pipeline)
-
     state.visualization = 'bubble';
     renderers.get(state.visualization)();
 });
@@ -300,7 +296,6 @@ document.getElementById('applyFilters').addEventListener('click', () => {
         .filter('dateFilter', d => new Date(d.created_date) >= new Date(f.minDate) && new Date(d.created_date) <= new Date(f.maxDate))
         .sortBy('sortBy', 'subscriber_count', false)
         .limit('topK', f.topK);
-    console.log(pipeline)
     renderers.get(state.visualization)();
 });
 
