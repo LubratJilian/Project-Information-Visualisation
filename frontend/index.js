@@ -271,10 +271,14 @@ document.getElementById('bubbles-btn').addEventListener('click', () => {
     renderers.get(state.visualization)();
 });
 
+document.getElementById('pie-btn').addEventListener('click', () => {
+    state.visualization = 'pie';
+    renderers.get(state.visualization)();
+});
+
 document.getElementById('applyFilters').addEventListener('click', () => {
     pipeline.clearOperations();
     const f = state.filters;
-
     pipeline
         .filter('countryFilter', d => !f.selectedCountries?.length || f.selectedCountries.includes(d.country))
         .filter('categoryFilter', d => {
@@ -288,7 +292,15 @@ document.getElementById('applyFilters').addEventListener('click', () => {
         .sortBy('sortBy', 'subscriber_count', false)
         .limit('topK', f.topK);
 
-    renderers.get(state.visualization)();
+        // Pour le pie chart, on passe le pays et la/les catégories sélectionnées à renderPie
+        if (state.visualization === 'pie') {
+            const countries = state.filters.selectedCountries;
+            const categories = state.filters.selectedCategories;
+            const country = (countries && countries.length === 1) ? countries[0] : 'Monde';
+            renderPie(country, categories);
+        } else {
+            renderers.get(state.visualization)();
+        }
 });
 
 document.getElementById('resetFilters').addEventListener('click', () => {
@@ -300,11 +312,6 @@ document.getElementById('resetFilters').addEventListener('click', () => {
 document.getElementById("filter-toggle").addEventListener("click", () => {
     document.getElementById("main-layout").classList.toggle("open");
     new Promise(resolve => setTimeout(resolve, 250)).then(() => renderers.get(state.visualization)());
-});
-
-document.getElementById('pie-btn').addEventListener('click', () => {
-    state.visualization = 'pie';
-    renderPie('Monde');
 });
 
 export default pipeline;

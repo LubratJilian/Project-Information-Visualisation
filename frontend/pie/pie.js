@@ -26,56 +26,46 @@ const d3 = window.d3;
 
 const CSV_PATH = '../data/youtube.csv';
 
-const width = 700;
-const height = 500;
-const radius = Math.min(width, height) / 2 - 20;
+// (width, height, radius are declared as let below)
 
-// svg will be created lazily when #chart exists
+// Use the shared #svg container and SVG element
 let svg = null;
+let width = 700;
+let height = 500;
+let radius = Math.min(width, height) / 2 - 20;
 function ensureSvg() {
-  const container = d3.select('#chart');
+  const container = d3.select('#svg');
   if (container.empty()) return false;
-  // if we already have an svg selection, verify its node is still in the DOM
-  if (svg) {
-    const node = svg.node && svg.node();
-    if (!node || !document.contains(node)) {
-      svg = null; // was removed, recreate below
-    }
-  }
-  if (!svg) {
-    // compute size from the container to allow the pie to grow responsively
-    const node = container.node();
-    const rect = node.getBoundingClientRect();
-    const w = Math.max(300, rect.width || width);
-    // prefer a landscape feel but cap by viewport to avoid overflow
-    const h = Math.max(300, Math.min(window.innerHeight * 0.65, w * 0.7));
-    const r = Math.min(w, h) / 2 - 20;
-    // update the outer arc radius used by transitions
-    arc = d3.arc().innerRadius(0).outerRadius(r);
-
-    svg = container.append('svg')
-      .attr('width', w)
-      .attr('height', h)
-      .append('g')
-      .attr('transform', `translate(${w/2},${h/2})`);
-  }
+  container.selectAll('svg').remove();
+  const rect = container.node().getBoundingClientRect();
+  width = rect.width;
+  height = rect.height;
+  // Fill as much as possible, with a small margin
+  radius = Math.min(width, height) / 2 - 8;
+  // Place the pie at the top (with margin)
+  const marginTop = 32;
+  const svgElem = container.append('svg')
+    .attr('viewBox', `0 0 ${width} ${height}`)
+    .attr('preserveAspectRatio', 'xMidYMid meet')
+    .style('width', '100%')
+    .style('height', '100%')
+    .style('font-family', 'Arial, sans-serif');
+  svgElem.append('text')
+    .attr('class', 'pie-title')
+    .attr('x', width / 2)
+    .attr('y', 24)
+    .attr('text-anchor', 'middle')
+    .attr('font-size', '22px')
+    .attr('font-weight', 'bold')
+    .attr('fill', '#2d3748')
+    .text('Monde');
+  svg = svgElem.append('g')
+    .attr('transform', `translate(${width/2},${radius + marginTop})`);
   return true;
 }
 
-// populate the country <select> from current aggregates; called on each render so
-// recreated DOM receives options even if aggregates were already built
-function populateCountrySelect() {
-  const countries = Array.from(dataByCountry.keys()).sort();
-  const select = d3.select('#countrySelect');
-  if (select.empty()) return;
-  select.selectAll('option').remove();
-  const allCountries = [WORLD_KEY].concat(countries);
-  select.selectAll('option')
-    .data(allCountries)
-    .enter().append('option')
-    .attr('value', d => d)
-    .text(d => d);
-}
+// No-op: country selection UI is not handled in pie.js anymore
+function populateCountrySelect() {}
 
 // We'll build a palette dynamically per render depending on number of slices
 let color = d3.scaleOrdinal(d3.schemeTableau10);
@@ -83,9 +73,7 @@ let color = d3.scaleOrdinal(d3.schemeTableau10);
 const pie = d3.pie().value(d => d.value).sort(null);
 let arc = d3.arc().innerRadius(0).outerRadius(radius);
 
-let dataByCountry = new Map();
-// For drilldown: country -> category -> Map(channelName -> totalViews)
-let dataByCountryCategoryChannels = new Map();
+
 
 let currentCountry = null;
 let currentDrillCategory = null;
@@ -187,30 +175,38 @@ function getCategoryGrouping(catMap, maxCategories = 12) {
   return {dataset: top, groupedCategories: othersCategories};
 }
 
-// store grouped categories per country so 'Autres' drill can fetch their channels
-const groupedCategoriesByCountry = new Map();
+
 
 // Aggregate category map across all countries (for Monde)
 function aggregateAllCountriesCatMap() {
+  // Agrège les catégories sur toutes les données filtrées
+  const rows = window.pipeline && typeof window.pipeline.run === 'function' ? window.pipeline.run() : [];
   const agg = new Map();
-  for (const [, catMap] of dataByCountry.entries()) {
-    for (const [cat, v] of catMap.entries()) {
+  rows.forEach(r => {
+    const rawCats = (r.category || 'Unknown');
+    const cats = rawCats.split(/\s*,\s*/).map(c => c.trim()).filter(c => c.length > 0);
+    const v = parseNumber(r.view_count);
+    cats.forEach(cat => {
       agg.set(cat, (agg.get(cat) || 0) + v);
-    }
-  }
+    });
+  });
   return agg;
 }
 
 // Aggregate channels for a given category across all countries
 function aggregateCategoryChannelsAllCountries(category) {
+  // Agrège les chaînes pour une catégorie sur toutes les données filtrées
+  const rows = window.pipeline && typeof window.pipeline.run === 'function' ? window.pipeline.run() : [];
   const agg = new Map();
-  for (const [, byCountry] of dataByCountryCategoryChannels.entries()) {
-    const chMap = byCountry.get(category);
-    if (!chMap) continue;
-    for (const [ch, v] of chMap.entries()) {
+  rows.forEach(r => {
+    const rawCats = (r.category || 'Unknown');
+    const cats = rawCats.split(/\s*,\s*/).map(c => c.trim()).filter(c => c.length > 0);
+    if (cats.includes(category)) {
+      const ch = (r.channel_name || '').trim() || 'Unknown channel';
+      const v = parseNumber(r.view_count);
       agg.set(ch, (agg.get(ch) || 0) + v);
     }
-  }
+  });
   return agg;
 }
 
@@ -224,32 +220,25 @@ function makeColorPalette(n) {
 // Build aggregated maps from an array of rows (same normalization as previous CSV loader)
 function buildAggregatesFromRows(rows) {
   rows.forEach(r0 => {
-    // collect observed 2-letter country tokens for later reporting
-    const rawToken = (r0.country || '').trim();
-    const upToken = String(rawToken).toUpperCase();
-    if (/^[A-Z]{2}$/.test(upToken)) observedCountryCodes.add(upToken);
+    // On garde le code pays brut (ex: 'AE') comme clé
+    const code = (r0.country || '').trim().toUpperCase();
     const r = {
       channel_name: r0.channel_name || '',
       category: r0.category || 'Unknown',
-      country: (r0.country || 'Unknown').trim(),
+      country: code || 'Unknown',
       view_count: parseNumber(r0.view_count)
     };
-
-    // normalize country for display within pie view (map codes to full names)
-    const country = normalizeCountryForPie(r.country) || 'Unknown';
     const channelName = (r.channel_name || '').trim() || 'Unknown channel';
     const rawCats = (r.category || 'Unknown');
     const cats = rawCats.split(/\s*,\s*/).map(c => c.trim()).filter(c => c.length > 0);
     if (cats.length === 0) cats.push('Unknown');
-
-    if (!dataByCountry.has(country)) dataByCountry.set(country, new Map());
-    const catMap = dataByCountry.get(country);
+    if (!dataByCountry.has(code)) dataByCountry.set(code, new Map());
+    const catMap = dataByCountry.get(code);
     cats.forEach(cat => {
       const key = cat || 'Unknown';
       catMap.set(key, (catMap.get(key) || 0) + r.view_count);
-      // store per-channel breakdown for drilldown
-      if (!dataByCountryCategoryChannels.has(country)) dataByCountryCategoryChannels.set(country, new Map());
-      const byCat = dataByCountryCategoryChannels.get(country);
+      if (!dataByCountryCategoryChannels.has(code)) dataByCountryCategoryChannels.set(code, new Map());
+      const byCat = dataByCountryCategoryChannels.get(code);
       if (!byCat.has(key)) byCat.set(key, new Map());
       const chMap = byCat.get(key);
       chMap.set(channelName, (chMap.get(channelName) || 0) + r.view_count);
@@ -279,7 +268,8 @@ function buildAggregatesIfNeeded(done) {
     if (done) done();
     return;
   }
-  const rows = window.pipeline && window.pipeline.data;
+  // Utilise toujours les données filtrées du pipeline
+  const rows = window.pipeline && typeof window.pipeline.run === 'function' ? window.pipeline.run() : [];
   if (rows && rows.length > 0) {
     buildAggregatesFromRows(rows);
     if (done) done();
@@ -289,114 +279,86 @@ function buildAggregatesIfNeeded(done) {
   setTimeout(() => buildAggregatesIfNeeded(done), 100);
 }
 
-function renderForCountry(country) {
-  // Ensure SVG container exists and data aggregates are ready before rendering.
-  // If not yet available, retry shortly.
-  if (!ensureSvg()) {
-    // DOM not ready; try again after a short delay
-    setTimeout(() => renderForCountry(country), 100);
-    return;
-  }
-
-  buildAggregatesIfNeeded(() => {
-    // actual render logic moved here to run after data/dom readiness
-    currentCountry = country;
-    currentDrillCategory = null;
-    const catMap = country === WORLD_KEY ? aggregateAllCountriesCatMap() : (dataByCountry.get(country) || new Map());
-
-    // default grouping: top 9 + Autres => 10 items; if Autres > 50% then expand to 20
-    let grouping = getCategoryGrouping(catMap, 10);
-    const total = d3.sum(prepareDataset(catMap), d => d.value) || 0;
-    const autres = grouping.dataset.find(d => d.category === 'Autres');
-    let extendedMode = false;
-    if (autres && total > 0 && (autres.value / total) > 0.5) {
-      // switch to extended view showing more items
-      grouping = getCategoryGrouping(catMap, 20);
-      extendedMode = true;
-    }
-
-    const dataset = grouping.dataset;
-    groupedCategoriesByCountry.set(country, grouping.groupedCategories || []);
-
-    // reflect the active country in the selector
-  // ensure the country select is populated (handles DOM recreation)
-  populateCountrySelect();
-  const select = d3.select('#countrySelect');
-  if (!select.empty()) select.property('value', country);
-
-    // rebuild color scale for the dataset size
-    const palette = makeColorPalette(dataset.length || 1);
-    color = d3.scaleOrdinal().domain(dataset.map(d => d.category)).range(palette);
-
-    const arcs = pie(dataset);
-
-    // DATA JOIN
-    const paths = svg.selectAll('path').data(arcs, d => d.data.category);
-
-    // EXIT
-    paths.exit().transition().duration(400).attrTween('d', arcTweenExit).remove();
-
-    // ENTER
-    const enter = paths.enter().append('path')
-      .attr('fill', d => color(d.data.category))
-      .attr('stroke', '#000')
-      .attr('stroke-width', 0.6)
-      .attr('stroke-linejoin', 'round')
-      .each(function(d) { this._current = d; })
-      .on('mouseover', (event, d) => showTooltip(event, d))
-      .on('mouseout', hideTooltip)
-      .on('click', (event, d) => {
-        const cat = d.data.category;
-        if (currentDrillCategory === cat) {
-          currentDrillCategory = null;
-          renderForCountry(currentCountry);
-        } else {
-          currentDrillCategory = cat;
-          renderDrillForCategory(currentCountry, cat);
-        }
-      });
-
-    // UPDATE + ENTER: ensure fill is updated for both entering and updating arcs
-    enter.merge(paths)
-      .attr('fill', d => color(d.data.category))
-      .attr('stroke', '#000')
-      .attr('stroke-width', 0.6)
-      .attr('stroke-linejoin', 'round')
-      .transition().duration(600)
-      .attrTween('d', arcTween);
-
-    // show chart title, add small badge if extended
-    const titleEl = d3.select('#chartTitle');
-    const titleParts = [country];
-    titleEl.text(titleParts.join(' › ') + (extendedMode ? '  (Mode étendu — 20)' : ''));
-
-    renderLegend(dataset);
-    updateBreadcrumb();
-  });
-}
 
 function renderDrillForCategory(country, category) {
+  // Met à jour le titre dans le SVG
+  d3.select('#svg svg .pie-title').text(country + ' > ' + category);
+  // Agrégation drilldown uniquement à partir des données filtrées
+  const rows = window.pipeline && typeof window.pipeline.run === 'function' ? window.pipeline.run() : [];
   let chMap = new Map();
   if (country === WORLD_KEY) {
     if (category === 'Autres') {
-      const grouped = groupedCategoriesByCountry.get(WORLD_KEY) || [];
-      grouped.forEach(cat => {
-        const m = aggregateCategoryChannelsAllCountries(cat) || new Map();
-        m.forEach((v,k) => chMap.set(k, (chMap.get(k)||0) + v));
+      // Regroupe les chaînes des catégories "Autres" (top 10/20)
+      // On doit recalculer les catégories "Autres" sur toutes les données filtrées
+      let catMap = aggregateAllCountriesCatMap();
+      let grouping = getCategoryGrouping(catMap, 10);
+      const total = d3.sum(prepareDataset(catMap), d => d.value) || 0;
+      const autres = grouping.dataset.find(d => d.category === 'Autres');
+      if (autres && total > 0 && (autres.value / total) > 0.5) {
+        grouping = getCategoryGrouping(catMap, 20);
+      }
+      const grouped = grouping.groupedCategories || [];
+      rows.forEach(r => {
+        const rawCats = (r.category || 'Unknown');
+        const cats = rawCats.split(/\s*,\s*/).map(c => c.trim()).filter(c => c.length > 0);
+        if (cats.some(cat => grouped.includes(cat))) {
+          const ch = (r.channel_name || '').trim() || 'Unknown channel';
+          const v = parseNumber(r.view_count);
+          chMap.set(ch, (chMap.get(ch) || 0) + v);
+        }
       });
     } else {
-      chMap = aggregateCategoryChannelsAllCountries(category) || new Map();
+      // Drilldown sur une catégorie précise (tous pays)
+      rows.forEach(r => {
+        const rawCats = (r.category || 'Unknown');
+        const cats = rawCats.split(/\s*,\s*/).map(c => c.trim()).filter(c => c.length > 0);
+        if (cats.includes(category)) {
+          const ch = (r.channel_name || '').trim() || 'Unknown channel';
+          const v = parseNumber(r.view_count);
+          chMap.set(ch, (chMap.get(ch) || 0) + v);
+        }
+      });
     }
   } else {
-    const byCountry = dataByCountryCategoryChannels.get(country) || new Map();
     if (category === 'Autres') {
-      const grouped = groupedCategoriesByCountry.get(country) || [];
-      grouped.forEach(cat => {
-        const m = byCountry.get(cat) || new Map();
-        m.forEach((v,k) => chMap.set(k, (chMap.get(k)||0) + v));
+      // Regroupe les chaînes des catégories "Autres" pour le pays sélectionné
+      // On doit recalculer les catégories "Autres" sur les données filtrées du pays
+      let catMap = new Map();
+      rows.filter(r => (r.country || '').trim().toUpperCase() === country).forEach(r => {
+        const rawCats = (r.category || 'Unknown');
+        const cats = rawCats.split(/\s*,\s*/).map(c => c.trim()).filter(c => c.length > 0);
+        const v = parseNumber(r.view_count);
+        cats.forEach(cat => {
+          catMap.set(cat, (catMap.get(cat) || 0) + v);
+        });
+      });
+      let grouping = getCategoryGrouping(catMap, 10);
+      const total = d3.sum(prepareDataset(catMap), d => d.value) || 0;
+      const autres = grouping.dataset.find(d => d.category === 'Autres');
+      if (autres && total > 0 && (autres.value / total) > 0.5) {
+        grouping = getCategoryGrouping(catMap, 20);
+      }
+      const grouped = grouping.groupedCategories || [];
+      rows.filter(r => (r.country || '').trim().toUpperCase() === country).forEach(r => {
+        const rawCats = (r.category || 'Unknown');
+        const cats = rawCats.split(/\s*,\s*/).map(c => c.trim()).filter(c => c.length > 0);
+        if (cats.some(cat => grouped.includes(cat))) {
+          const ch = (r.channel_name || '').trim() || 'Unknown channel';
+          const v = parseNumber(r.view_count);
+          chMap.set(ch, (chMap.get(ch) || 0) + v);
+        }
       });
     } else {
-      chMap = byCountry.get(category) || new Map();
+      // Drilldown sur une catégorie précise pour le pays sélectionné
+      rows.filter(r => (r.country || '').trim().toUpperCase() === country).forEach(r => {
+        const rawCats = (r.category || 'Unknown');
+        const cats = rawCats.split(/\s*,\s*/).map(c => c.trim()).filter(c => c.length > 0);
+        if (cats.includes(category)) {
+          const ch = (r.channel_name || '').trim() || 'Unknown channel';
+          const v = parseNumber(r.view_count);
+          chMap.set(ch, (chMap.get(ch) || 0) + v);
+        }
+      });
     }
   }
 
@@ -419,6 +381,9 @@ function renderDrillForCategory(country, category) {
   // rebuild palette for channels
   const palette = makeColorPalette(dataset.length || 1);
   color = d3.scaleOrdinal().domain(dataset.map(d => d.category)).range(palette);
+
+  // Remove previous arcs
+  svg.selectAll('path').remove();
 
   const arcs = pie(dataset);
 
@@ -480,7 +445,22 @@ function renderLegend(dataset) {
 }
 
 // tooltip
-const tooltip = d3.select('body').append('div').attr('class', 'pie-tooltip').style('display','none');
+let tooltip = d3.select('body').select('.pie-tooltip');
+if (tooltip.empty()) {
+  tooltip = d3.select('body').append('div')
+    .attr('class', 'pie-tooltip')
+    .style('display','none')
+    .style('position', 'fixed')
+    .style('z-index', '9999')
+    .style('pointer-events', 'none')
+    .style('background', '#fff')
+    .style('color', '#222')
+    .style('border', '1px solid #ddd')
+    .style('border-radius', '5px')
+    .style('box-shadow', '0 4px 12px rgba(0,0,0,0.10)')
+    .style('padding', '10px')
+    .style('font-size', '13px');
+}
 function showTooltip(event, d) {
   const bound = svg.selectAll('path').data();
   const total = d3.sum(bound, x => x && x.data ? x.data.value : 0) || 0;
@@ -488,9 +468,59 @@ function showTooltip(event, d) {
   const fmt3 = d3.format('.3s');
   tooltip.style('display','block')
     .html(`<strong>${d.data.category}</strong><br>${pct}% — ${fmt3(d.data.value)} vues`);
-  tooltip.style('left', (event.pageX + 10) + 'px').style('top', (event.pageY + 10) + 'px');
+  // Use clientX/clientY for fixed positioning
+  tooltip.style('left', (event.clientX + 16) + 'px')
+    .style('top', (event.clientY + 12) + 'px');
 }
 function hideTooltip() { tooltip.style('display','none'); }
+// --- Filter synchronization logic (like box.js/bubble.js) ---
+function getSelectedCountryFromFilter() {
+  // Récupère la liste des pays sélectionnés dans les filtres globaux (state.filters)
+  let selected = [];
+  if (window.state && window.state.filters && Array.isArray(window.state.filters.selectedCountries)) {
+    selected = window.state.filters.selectedCountries;
+  } else {
+    // fallback DOM (rare)
+    const items = document.querySelectorAll('#countryDropdown .multi-select-items input[type="checkbox"]');
+    selected = Array.from(items).filter(cb => cb.checked).map(cb => cb.value);
+  }
+  console.log('[pie.js][getSelectedCountryFromFilter] Codes pays sélectionnés:', selected);
+  if (selected.length === 1) return selected[0];
+  if (selected.length > 1) return 'Monde';
+  return null;
+}
+
+function onFilterApplyPie() {
+  console.log('[pie.js][onFilterApplyPie] Application des filtres...');
+  // Log l'état global des filtres reçus
+  if (window.state && window.state.filters) {
+    console.log('[pie.js][onFilterApplyPie] Filtres reçus dans pie.js :', JSON.stringify(window.state.filters, null, 2));
+  }
+  const selectedCountry = getSelectedCountryFromFilter();
+  console.log('[pie.js][onFilterApplyPie] Code pays filtré reçu:', selectedCountry);
+  if (selectedCountry) {
+    currentCountry = selectedCountry;
+    currentDrillCategory = null;
+    console.log('[pie.js][onFilterApplyPie] Appel renderForCountry avec:', selectedCountry);
+    renderForCountry(selectedCountry);
+  } else {
+    currentCountry = 'Monde';
+    currentDrillCategory = null;
+    console.log('[pie.js][onFilterApplyPie] Aucun pays sélectionné, appel renderForCountry avec: Monde');
+    renderForCountry('Monde');
+  }
+}
+
+// Listen for filter apply events (assume filter apply button has id 'applyFiltersBtn')
+function setupPieFilterSync() {
+  const btn = document.getElementById('applyFiltersBtn');
+  if (btn && !btn._pieSyncAttached) {
+    btn.addEventListener('click', onFilterApplyPie);
+    btn._pieSyncAttached = true;
+  }
+}
+
+// Call setupPieFilterSync on pie chart show/init
 
 import DataPipeline from "../pipeline.js";
 import { renderTreemap } from "../box/box.js";
@@ -505,85 +535,171 @@ window.initPipeline = function () {
   pipeline.load("data/youtube.csv", "csv").then();
 };
 
-// gestion des boutons
-document.getElementById('box-btn').addEventListener('click', () => {
-  // suppression du pie si affiché
-  const pieContainer = document.getElementById('pie-container');
-  if (pieContainer) pieContainer.remove();
-
-  // affichage du treemap
-  const svgDiv = document.getElementById('svg');
-  svgDiv.style.display = '';
-  const filter = document.getElementById('filter-panel');
-  if (filter) filter.style.display = '';
-  renderTreemap();
-});
-
-document.getElementById('pie-btn').addEventListener('click', () => {
-  // cacher le treemap
-  const svgDiv = document.getElementById('svg');
-  if (svgDiv) {
-    svgDiv.innerHTML = '';
-    svgDiv.style.display = 'none';
-  }
-  // afficher le pie
-  showPie();
-  renderForCountry('Monde');
-});
+// gestion des boutons : handled in index.js
 
 // expose for testing
-export { renderForCountry };
+// Nouvelle version : accepte un tableau de catégories sélectionnées
+export function renderForCountry(country, categories) {
+  // Ajout : log complet de l'état du pipeline et des filtres reçus
+  if (window && window.pipeline && typeof window.pipeline.run === 'function') {
+    try {
+      const lastRows = window.pipeline.run();
+      if (window.state && window.state.filters) {
+        console.log('[pie.js][renderForCountry] Filtres reçus (window.state.filters) :', JSON.stringify(window.state.filters, null, 2));
+      }
+      console.log('[pie.js][renderForCountry] Données filtrées (pipeline.run) :', lastRows);
+    } catch (e) {
+      console.warn('[pie.js][renderForCountry] Impossible d\'afficher les filtres ou données filtrées', e);
+    }
+  }
+  // Correction : fallback sur 'Monde' si country est undefined ou vide
+  if (!country) {
+    console.warn('[pie.js][renderForCountry] Pays reçu indéfini, fallback sur Monde');
+    country = 'Monde';
+  }
+  // Calculer dynamiquement la liste des pays connus à partir des données filtrées
+  const rowsCountries = window.pipeline && typeof window.pipeline.run === 'function' ? window.pipeline.run() : [];
+  const knownCountries = Array.from(new Set(rowsCountries.map(r => (r.country || '').trim().toUpperCase()))).filter(c => c);
+  if (country !== 'Monde' && !knownCountries.includes(country)) {
+    console.warn('[pie.js][renderForCountry] Code pays non trouvé dans les données filtrées, fallback sur Monde:', country);
+    country = 'Monde';
+  }
+  // Gestion des catégories sélectionnées
+  const filtered = window.pipeline && typeof window.pipeline.run === 'function' ? window.pipeline.run() : [];
+  let filteredByCountry = country === 'Monde' ? filtered : filtered.filter(d => (d.country || '').trim().toUpperCase() === country);
+  let filteredByCat = categories && categories.length > 0
+    ? filteredByCountry.filter(d => {
+        if (!d.category) return false;
+        const channelCategories = new Set(d.category.split(',').map(cat => cat.trim()));
+        return categories.some(selected => channelCategories.has(selected));
+      })
+    : filteredByCountry;
+
+  // Met à jour le texte du titre en haut du diagramme
+  let countryLabel = country === 'Monde' ? 'Monde' : (countryCodeMap[country] || country);
+  console.log("countryLabel:", countryLabel);
+  const title = document.getElementById('chartTitle');
+  if (filteredByCat.length === 0) {
+    if (title) title.textContent = '';
+    const svgContainer = document.getElementById('svg');
+    if (svgContainer) svgContainer.innerHTML = '<div style="text-align:center;padding:2em;font-size:1.3em;color:#b00">Pas de résultat pour ces filtres</div>';
+    const legend = document.getElementById('legend');
+    if (legend) legend.innerHTML = '';
+    return;
+  } else {
+    // Si on a des résultats, on efface le message d'erreur éventuel
+    const svgContainer = document.getElementById('svg');
+    if (svgContainer && svgContainer.innerHTML.includes('Pas de résultat pour ces filtres')) {
+      svgContainer.innerHTML = '';
+    }
+  }
+  // Toujours mettre à jour le titre selon le contexte
+  if (categories && categories.length === 1) {
+    if (title) title.textContent = countryLabel + ' > ' + categories[0];
+    _renderPieBase(country);
+    setTimeout(() => {
+      renderDrillForCategory(country, categories[0]);
+    }, 100);
+    return;
+  }
+  if (categories && categories.length > 1) {
+    if (title) title.textContent = countryLabel + ' > ' + categories.join(', ');
+    _renderPieBase(country);
+    setTimeout(() => {
+      categories.forEach(cat => renderDrillForCategory(country, cat));
+    }, 100);
+    return;
+  }
+  // Sinon, camembert classique (pays seul)
+  if (title) title.textContent = countryLabel;
+  _renderPieBase(country);
+}
+
+// Sépare la logique de rendu du camembert de base (catégories globales)
+function _renderPieBase(country) {
+  // Met à jour le titre dans le SVG (affiche le nom complet du pays si code)
+  let countryLabel = 'Monde';
+  if (country && country !== 'Monde') {
+    countryLabel = countryCodeMap[country] || country;
+  }
+  if (!ensureSvg()) {
+    setTimeout(() => _renderPieBase(country), 100);
+    return;
+  }
+  // Toujours mettre à jour le titre après création du SVG
+  d3.select('#svg svg .pie-title').text(countryLabel);
+  currentCountry = country;
+  currentDrillCategory = null;
+  const rows = window.pipeline && typeof window.pipeline.run === 'function' ? window.pipeline.run() : [];
+  let catMap = new Map();
+  if (country === WORLD_KEY) {
+    catMap = aggregateAllCountriesCatMap();
+  } else {
+    rows.filter(r => (r.country || '').trim().toUpperCase() === country).forEach(r => {
+      const rawCats = (r.category || 'Unknown');
+      const cats = rawCats.split(/\s*,\s*/).map(c => c.trim()).filter(c => c.length > 0);
+      const v = parseNumber(r.view_count);
+      cats.forEach(cat => {
+        catMap.set(cat, (catMap.get(cat) || 0) + v);
+      });
+    });
+  }
+  let grouping = getCategoryGrouping(catMap, 10);
+  const total = d3.sum(prepareDataset(catMap), d => d.value) || 0;
+  const autres = grouping.dataset.find(d => d.category === 'Autres');
+  let extendedMode = false;
+  if (autres && total > 0 && (autres.value / total) > 0.5) {
+    grouping = getCategoryGrouping(catMap, 20);
+    extendedMode = true;
+  }
+  const dataset = grouping.dataset;
+  const palette = makeColorPalette(dataset.length || 1);
+  color = d3.scaleOrdinal().domain(dataset.map(d => d.category)).range(palette);
+  const arcs = pie(dataset);
+  const paths = svg.selectAll('path').data(arcs, d => d.data.category);
+  paths.exit().transition().duration(400).attrTween('d', arcTweenExit).remove();
+  const enter = paths.enter().append('path')
+    .attr('fill', d => color(d.data.category))
+    .attr('stroke', '#000')
+    .attr('stroke-width', 0.6)
+    .attr('stroke-linejoin', 'round')
+    .each(function(d) { this._current = d; })
+    .on('pointerenter', function(event, d) { showTooltip(event, d); })
+    .on('pointermove', function(event, d) { showTooltip(event, d); })
+    .on('pointerleave', function() { hideTooltip(); })
+    .on('click', (event, d) => {
+      const cat = d.data.category;
+      if (currentDrillCategory === cat) {
+        currentDrillCategory = null;
+        _renderPieBase(currentCountry);
+      } else {
+        currentDrillCategory = cat;
+        renderDrillForCategory(currentCountry, cat);
+      }
+    });
+  enter.merge(paths)
+    .attr('fill', d => color(d.data.category))
+    .attr('stroke', '#000')
+    .attr('stroke-width', 0.6)
+    .attr('stroke-linejoin', 'round')
+    .transition().duration(600)
+    .attrTween('d', arcTween);
+  renderLegend(dataset);
+  updateBreadcrumb();
+}
 // Create/show pie DOM and prepare the view; exported so index.js can call it.
 function showPie() {
   injectPieStyles();
   // hide filter panel while pie is visible to avoid layout shifting
   const filter = document.getElementById('filter-panel');
   if (filter) filter.style.display = 'none';
-
-  // ensure pie UI elements are present in a dedicated container; create if missing
-  let pieContainer = document.getElementById('pie-container');
-  if (!pieContainer) {
-    const main = document.querySelector('main');
-    pieContainer = document.createElement('div');
-    pieContainer.id = 'pie-container';
-    pieContainer.style.width = '100%';
-    pieContainer.style.boxSizing = 'border-box';
-    // layout: controls on top, chart + legend in a row below
-    pieContainer.innerHTML = `
-      <div id="pie-controls">
-        <label for="countrySelect">Pays :</label>
-        <select id="countrySelect"></select>
-      </div>
-      <div id="pie-main" style="display:flex;align-items:flex-start;gap:18px;">
-        <div id="chartWrapper" style="flex:1;display:flex;flex-direction:column;align-items:center;">
-          <div id="chartTitle" class="chart-title"></div>
-          <div id="chart" tabindex="0" style="width:100%;"></div>
-        </div>
-        <aside id="legend" style="width:260px;flex:0 0 260px;"></aside>
-      </div>
-    `;
-    main.appendChild(pieContainer);
-  }
-
-  // If aggregates already exist, populate selects immediately
-  if (dataByCountry.size > 0) populateCountrySelect();
-
-  // attach a resize handler to recompute svg size and re-render
-  function onResize() {
-    if (resizeTimer) clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(() => {
-      // drop old svg so ensureSvg will recreate using new container size
-      if (svg) {
-        const node = svg.node && svg.node();
-        if (node && node.parentNode) node.parentNode.removeChild(node);
-        svg = null;
-      }
-      // re-render current view
-      if (currentCountry) renderForCountry(currentCountry);
-    }, 150);
-  }
-  window.removeEventListener('resize', onResize);
-  window.addEventListener('resize', onResize);
+  const container = d3.select('#svg');
+  container.html('');
+  // ensure world data is loaded
+  buildAggregatesIfNeeded(() => {
+    renderForCountry(WORLD_KEY);
+  });
 }
 
-export { showPie };
+// Call showPie on page load or pie chart tab activation
+window.showPie = showPie;
