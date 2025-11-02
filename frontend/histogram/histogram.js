@@ -359,6 +359,10 @@ function renderZoomedView() {
     svg.select('.chart-title').text(`Comparaison: ${channel.channel_name}`);
     svg.select('.chart-subtitle').style('opacity', 0);
 
+    // IMPORTANT: Remove all old bars first
+    chartGroup.selectAll('.bar').remove();
+    chartGroup.selectAll('.bar-label').remove();
+
     // Update scales
     xScale.domain(comparisonData.map(d => d.label));
     yScale.domain([0, d3.max(comparisonData, d => d.value) * 1.2]);
@@ -377,31 +381,19 @@ function renderZoomedView() {
         .duration(750)
         .call(d3.axisLeft(yScale).ticks(8).tickFormat(d => formatNumber(d)));
 
-    // Bars
+    // Create new bars for comparison
     const bars = chartGroup.selectAll('.bar')
-        .data(comparisonData, d => d.label);
-
-    // Exit
-    bars.exit()
-        .transition()
-        .duration(500)
-        .attr('y', height - margin.top - margin.bottom)
-        .attr('height', 0)
-        .style('opacity', 0)
-        .remove();
-
-    // Enter + Update
-    const barsEnter = bars.enter()
+        .data(comparisonData, d => d.label)
+        .enter()
         .append('rect')
         .attr('class', 'bar')
         .attr('x', d => xScale(d.label))
         .attr('width', xScale.bandwidth())
         .attr('y', height - margin.top - margin.bottom)
         .attr('height', 0)
+        .attr('fill', d => d.color)
         .style('cursor', 'default')
-        .style('opacity', 0.8);
-
-    barsEnter.merge(bars)
+        .style('opacity', 0.8)
         .on('mouseenter', function(event, d) {
             d3.select(this)
                 .transition()
@@ -430,37 +422,31 @@ function renderZoomedView() {
                 .style('opacity', 0.8);
 
             tooltip.style('opacity', 0);
-        })
-        .transition()
+        });
+
+    // Animate bars
+    bars.transition()
         .duration(750)
-        .attr('x', d => xScale(d.label))
-        .attr('width', xScale.bandwidth())
-        .attr('fill', d => d.color)
         .attr('y', d => yScale(d.value))
-        .attr('height', d => height - margin.top - margin.bottom - yScale(d.value))
-        .style('opacity', 0.8);
+        .attr('height', d => height - margin.top - margin.bottom - yScale(d.value));
 
     // Add value labels on top of bars
     const labels = chartGroup.selectAll('.bar-label')
-        .data(comparisonData, d => d.label);
-
-    labels.exit().remove();
-
-    const labelsEnter = labels.enter()
+        .data(comparisonData, d => d.label)
+        .enter()
         .append('text')
         .attr('class', 'bar-label')
         .attr('text-anchor', 'middle')
         .attr('font-size', '12px')
         .attr('font-weight', 'bold')
         .attr('fill', '#2d3748')
-        .style('opacity', 0);
-
-    labelsEnter.merge(labels)
-        .transition()
-        .duration(750)
         .attr('x', d => xScale(d.label) + xScale.bandwidth() / 2)
         .attr('y', d => yScale(d.value) - 8)
-        .text(d => formatNumber(d.value))
+        .style('opacity', 0)
+        .text(d => formatNumber(d.value));
+
+    labels.transition()
+        .duration(750)
         .style('opacity', 1);
 }
 
@@ -477,4 +463,11 @@ function renderHistogram() {
     }
 }
 
-export { renderHistogram };
+/**
+ * Reset zoom state (called when filters are applied)
+ */
+function resetZoom() {
+    state.selectedChannel = null;
+}
+
+export { renderHistogram, resetZoom };
