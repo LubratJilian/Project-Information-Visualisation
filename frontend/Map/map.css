@@ -1,0 +1,85 @@
+#side-panel {
+    position: absolute;
+    z-index: 100000;
+    top: 0;
+    left: 0;
+    width: 50%;
+    height: 100%;
+    background: white;
+    border-left: 2px solid #ccc;
+    padding: 20px;
+    overflow-y: auto;
+    box-shadow: -2px 0 8px rgba(0,0,0,0.2);
+    transition: transform 0.3s ease;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    display: flex;
+    flex-direction: column;
+
+    &.hidden {
+        display: none; 
+        transform: translateX(100%);
+    }
+
+    & #close-panel {
+        font-size: 1.2rem;
+        color: black;
+        cursor: pointer;
+        right: 10px;
+        margin: 10px;
+        background: none;
+        border: none;
+        position: absolute;
+    }
+
+    & #panel-title {
+        text-align: center;
+    }
+
+    & #panel-content {
+        text-align: center;
+        margin: 10px 40px 10px 40px;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+}
+
+#map-tooltip{
+    position: absolute;
+    visibility: hidden;
+    color: black;
+    padding: 8px 12px;
+    background-color: rgba(255,255,255,0.7);
+    z-index: 10000000;
+    pointer-events: none;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-radius: 10px;
+}
+
+.info.legend {
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+  border-radius: 10px;
+  line-height: 18px;
+  color: #000000;
+}
+
+.info.legend h4 {
+  margin: 0 0 5px;
+  color: #000000;
+}
+
+#metric-selector {
+    &.hidden{
+        display: none;
+    }
+}
+
+#metric-choice {
+    padding: 8px 12px;
+    border: none;
+    width: 100%;
+    border-radius: 10px;
+}

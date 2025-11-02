@@ -1,5 +1,6 @@
 import DataPipeline from "./pipeline.js";
 import {renderTreemap} from "./box/box.js";
+import {renderMap,clearMap, getGlobalStatsCountry} from "./Map/map.js"
 import {renderPieChart as renderPie} from "./pie/pie.js";
 import {renderBubbleChart} from "./bubble/bubble.js";
 import {renderHistogram, resetZoom} from "./histogram/histogram.js";
@@ -11,10 +12,6 @@ const state = {
 };
 
 let defaultFilters = {};
-
-function renderMap() {
-    // import this function
-}
 
 const renderers = new Map([['treemap', renderTreemap], ['bubble', renderBubbleChart], ['map', renderMap], ['pie', renderPie], ['histogram', renderHistogram]]);
 
@@ -246,8 +243,8 @@ function resetFilters() {
     document.getElementById('maxDate').value = state.filters.maxDate;
     document.getElementById('topK').value = state.filters.topK;
 
-    pipeline.clearOperations();
-    renderers.get(state.visualization)();
+    if(state.visualization === "map")
+        document.getElementById('metric-choice').value = 'maxSubscribers';
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -255,12 +252,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 document.getElementById('box-btn').addEventListener('click', () => {
+    clearMap();
     state.visualization = 'treemap';
     resetZoom()
     renderers.get(state.visualization)();
 });
 
 document.getElementById('bubbles-btn').addEventListener('click', () => {
+    clearMap();
     state.visualization = 'bubble';
     resetZoom()
     renderers.get(state.visualization)();
@@ -283,7 +282,13 @@ document.getElementById('applyFilters').addEventListener('click', () => {
         resetZoom();
     }
 
-    pipeline.clearOperations();
+    pipeline.removeOperation('countryFilter');
+    pipeline.removeOperation('categoryFilter');
+    pipeline.removeOperation('subscriberFilter');
+    pipeline.removeOperation('dateFilter');
+    pipeline.removeOperation('sortBy');
+    pipeline.removeOperation('topK');
+
     const f = state.filters;
     pipeline
         .filter('countryFilter', d => !f.selectedCountries?.length || f.selectedCountries.includes(d.country))
@@ -297,7 +302,6 @@ document.getElementById('applyFilters').addEventListener('click', () => {
         .filter('dateFilter', d => new Date(d.created_date) >= new Date(f.minDate) && new Date(d.created_date) <= new Date(f.maxDate))
         .sortBy('sortBy', 'subscriber_count', false)
         .limit('topK', f.topK);
-
     renderers.get(state.visualization)();
 });
 
@@ -305,7 +309,12 @@ document.getElementById('resetFilters').addEventListener('click', () => {
     if (state.visualization === 'histogram') {
         resetZoom();
     }
-    pipeline.clearOperations();
+    pipeline.removeOperation('countryFilter');
+    pipeline.removeOperation('categoryFilter');
+    pipeline.removeOperation('subscriberFilter');
+    pipeline.removeOperation('dateFilter');
+    pipeline.removeOperation('sortBy');
+    pipeline.removeOperation('topK');
     resetFilters();
     renderers.get(state.visualization)();
 });
@@ -314,5 +323,17 @@ document.getElementById("filter-toggle").addEventListener("click", () => {
     document.getElementById("main-layout").classList.toggle("open");
     new Promise(resolve => setTimeout(resolve, 250)).then(() => renderers.get(state.visualization)());
 });
+
+document.getElementById('map-btn').addEventListener('click', () => {
+    clearMap();
+    state.visualization = 'map';
+    renderers.get(state.visualization)();
+});
+
+window.closeSidePanel = function () {
+    const panel = document.getElementById("side-panel");
+    panel.classList.add("hidden");
+    pipeline.removeOperation("countryFilter")
+}
 
 export default pipeline;

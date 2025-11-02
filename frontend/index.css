@@ -17,6 +17,7 @@ body {
     background: var(--bg);
     color: var(--fg);
     line-height: 1.6;
+    min-height: 100vh;
     height: 100vh;
     width: 100vw;
     display: grid;
@@ -24,13 +25,23 @@ body {
 }
 
 .hero {
-    padding: 1rem 1rem;
-    background: linear-gradient(135deg, rgba(37, 99, 235, 0.85), rgba(14, 165, 233, 0.85)), url('./presentation.png') center/cover;
+    flex-shrink: 0;
+    padding: 3rem 1.5rem 2rem;
+    background: linear-gradient(rgba(37, 99, 235, 0.85), rgba(37, 99, 235, 0.85)), url('./presentation.png') center/cover;
     color: white;
     text-align: center;
-}
 
-.toc {
+    & h1 {
+        margin-bottom: 1rem;
+        font-size: clamp(2rem, 4vw, 3rem);
+    }
+
+    & p {
+        max-width: 720px;
+        margin: 0 auto 1.5rem;
+    }
+
+    & .toc {
     display: flex;
     justify-content: center;
     flex-wrap: wrap;
@@ -43,34 +54,33 @@ body {
         padding: 0.5rem 1rem;
         border-radius: 999px;
         border: 1px solid rgba(255, 255, 255, 0.4);
+        backdrop-filter: blur(2px); /* Effet blur */
 
-        &:focus {
-            background: rgba(255, 255, 255, 0.2);
-            transform: translateY(-2px);
-        }
-
-        &:hover {
-            background: rgba(37, 99, 235, 0.5);
-            transform: translateY(-2px);
-        }
+      &:hover {
+        background-color: rgba(25, 25, 25, 0.2);
+        transform: translateY(-2px);
+        border: 1px solid rgba(255, 255, 255, 0.684);
+      }
     }
+  }
 }
+
 
 main {
     display: grid;
     grid-template-columns: 1fr auto;
+    position: relative;
     padding: 2rem 1rem;
     margin: 0 auto;
     gap: 1rem;
     width: 100%;
     transition: grid-template-columns 0.3s ease;
-    min-height: 0;
     max-height: 100%;
 
     #svg {
-        min-height: 0;
         height: 100%;
         width: 100%;
+        min-height: 0;
     }
 
     &.open {
@@ -83,6 +93,10 @@ main {
                 flex-direction: column;
                 width: 100%;
                 gap: 0.5em;
+
+                #country-selector.hidden{
+                    display: none;
+                }
 
                 .multi-select-container {
                     position: relative;
