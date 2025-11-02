@@ -271,6 +271,8 @@ document.getElementById('bubbles-btn').addEventListener('click', () => {
 	
 document.getElementById('histogram-btn').addEventListener('click', () => {
     state.visualization = 'histogram';
+    document.getElementById('topK').value = state.filters.topK = 50;
+    pipeline.limit('topK', state.filters.topK);
     renderers.get(state.visualization)();
 });
 
