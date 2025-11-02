@@ -231,7 +231,7 @@ function showCountries() {
             tooltip.style('opacity', 0);
             countriesSelected = [];
             for (const cb of document.querySelectorAll('#countryDropdown .multi-select-items input[type="checkbox"]'))
-                if (cb.checked) countriesSelected.push(cb.parentElement.textContent);
+                if (cb.checked) countriesSelected.push(cb.value);
             showYoutubers(d.data.country);
         });
 }

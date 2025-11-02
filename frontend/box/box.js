@@ -410,7 +410,8 @@ function renderTreemap() {
             if (d.data.isCountry) {
                 state.countriesSelected = [];
                 const checkboxes = document.querySelectorAll('#countryDropdown .multi-select-items input[type="checkbox"]');
-                for (const cb of checkboxes) if (cb.checked) state.countriesSelected.push(cb.parentElement.textContent);
+                for (const cb of checkboxes)
+                    if (cb.checked) state.countriesSelected.push(cb.value);
 
                 state.selectedCountry = d.data.name;
                 pipeline.addOperation('countryFilter', data => data.filter(item => (item.country || 'Non défini') === state.selectedCountry));
