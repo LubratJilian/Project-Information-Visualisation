@@ -21,7 +21,7 @@
     <main id="main-layout">
         <div id="svg"></div>
         <div id="filter-panel">
-            <div id="filter-toggle">Filtre</div>
+            <div id="filter-toggle"><span class="text">Filtre</span><span class="cross">&#10060</span></div>
             <div class="filter-content">
                 <div id="metric-selector" class="hidden">
                     <label for="metric-choice">Choix de la mesure :</label>
@@ -88,8 +88,14 @@
                 <label for="topK">Top K :</label>
                 <input type="number" id="topK" min="1" max="100" value="15">
 
+                <label for="topKCountries">Top K Pays:</label>
+                <input type="number" id="topKCountries" min="1" value="0" placeholder="0 = tous">
+
+                <label for="topKCategories">Top K Catégories:</label>
+                <input type="number" id="topKCategories" min="1" value="0" placeholder="0 = tous">
+
                 <button id="applyFilters">Appliquer les filtres</button>
-                <button id="resetFilters">Annuler les filtres</button>
+                <button id="resetFilters">Réinitialiser les filtres</button>
             </div>
         </div>
         <aside id="side-panel" class="hidden">

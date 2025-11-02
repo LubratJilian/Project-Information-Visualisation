@@ -1,9 +1,10 @@
 import DataPipeline from "./pipeline.js";
 import {renderTreemap} from "./box/box.js";
-import {renderMap,clearMap, getGlobalStatsCountry} from "./Map/map.js"
+import {clearMap, renderMap} from "./Map/map.js";
 import {renderPieChart as renderPie} from "./pie/pie.js";
 import {renderBubbleChart} from "./bubble/bubble.js";
 import {renderHistogram, resetZoom} from "./histogram/histogram.js";
+import {baseCountryCodeToFullName} from "./utils/utils.js";
 
 const pipeline = new DataPipeline();
 
@@ -37,6 +38,10 @@ function initializeFilters(data) {
     const videosMin = Math.min(...videos);
     const videosMax = Math.max(...videos);
 
+    const uniqueCountriesCount = countries.length;
+    const uniqueCategoriesCount = categories.length;
+    const totalChannelsCount = data.length;
+
     populateMultiSelect('countryDropdown', 'countryTrigger', countries, 'selectedCountries', 'pays');
     populateMultiSelect('categoryDropdown', 'categoryTrigger', categories, 'selectedCategories', 'catégories');
 
@@ -46,6 +51,8 @@ function initializeFilters(data) {
     bindInput('minDate', 'minDate');
     bindInput('maxDate', 'maxDate');
     bindInput('topK', 'topK', 'number');
+    bindInput('topKCountries', 'topKCountries', 'number');
+    bindInput('topKCategories', 'topKCategories', 'number');
 
     defaultFilters = {
         selectedCountries: [],
@@ -56,10 +63,13 @@ function initializeFilters(data) {
         maxVideos: videosMax,
         minDate: '2005-01-01',
         maxDate: new Date().toISOString().split('T')[0],
-        topK: 100
+        topK: totalChannelsCount,
+        topKCountries: uniqueCountriesCount,
+        topKCategories: uniqueCategoriesCount
     };
 
     state.filters = {...defaultFilters};
+    resetFilters();
 }
 
 function populateMultiSelect(dropdownId, triggerId, options, stateKey, labelSingular) {
@@ -87,7 +97,7 @@ function populateMultiSelect(dropdownId, triggerId, options, stateKey, labelSing
 
         const label = document.createElement('label');
         label.htmlFor = checkbox.id;
-        label.textContent = option;
+        label.textContent = labelSingular === 'pays' ? baseCountryCodeToFullName(option) : option;
 
         const item = document.createElement('div');
         item.className = 'multi-select-item';
@@ -108,7 +118,8 @@ function populateMultiSelect(dropdownId, triggerId, options, stateKey, labelSing
 
         for (const item of items) {
             const value = item.dataset.value;
-            if (value.includes(searchTerm)) item.style.display = ''; else item.style.display = 'none';
+            if (value.includes(searchTerm) || baseCountryCodeToFullName(value).toLowerCase().includes(searchTerm)) item.style.display = '';
+            else item.style.display = 'none';
         }
     });
 
@@ -118,9 +129,7 @@ function populateMultiSelect(dropdownId, triggerId, options, stateKey, labelSing
         if (dropdown.classList.contains('active')) {
             searchInput.value = '';
             searchInput.focus();
-            for (const item of itemsContainer.querySelectorAll('.multi-select-item')) {
-                item.style.display = '';
-            }
+            for (const item of itemsContainer.querySelectorAll('.multi-select-item')) item.style.display = '';
         }
     });
 
@@ -128,9 +137,7 @@ function populateMultiSelect(dropdownId, triggerId, options, stateKey, labelSing
         dropdown.classList.remove('active');
     });
 
-    dropdown.addEventListener('click', (e) => {
-        e.stopPropagation();
-    });
+    dropdown.addEventListener('click', (e) => e.stopPropagation());
 }
 
 function updateMultiSelectState(dropdownId, stateKey, selectedText, labelSingular) {
@@ -213,8 +220,12 @@ function updateSliderTrack(minSlider, maxSlider) {
     container.style.setProperty('--max-percent', `${percentMax}%`);
 }
 
-function bindInput(inputId, stateKey, type = 'string') {
+function bindInput(inputId, stateKey, type = 'string', maxValue = null) {
     const input = document.getElementById(inputId);
+    if (maxValue !== null && type === 'number') {
+        input.max = maxValue;
+        input.placeholder = `0-${maxValue}`;
+    }
     input.addEventListener('input', () => state.filters[stateKey] = type === 'number' ? Number.parseInt(input.value) : input.value);
 }
 
@@ -242,6 +253,8 @@ function resetFilters() {
     document.getElementById('minDate').value = state.filters.minDate;
     document.getElementById('maxDate').value = state.filters.maxDate;
     document.getElementById('topK').value = state.filters.topK;
+    document.getElementById('topKCountries').value = state.filters.topKCountries;
+    document.getElementById('topKCategories').value = state.filters.topKCategories;
 
     if(state.visualization === "map")
         document.getElementById('metric-choice').value = 'maxSubscribers';
@@ -266,6 +279,7 @@ document.getElementById('bubbles-btn').addEventListener('click', () => {
 });
 
 document.getElementById('histogram-btn').addEventListener('click', () => {
+    clearMap();
     state.visualization = 'histogram';
     document.getElementById('topK').value = state.filters.topK = 50;
     pipeline.limit('topK', state.filters.topK);
@@ -273,6 +287,7 @@ document.getElementById('histogram-btn').addEventListener('click', () => {
 });
 
 document.getElementById('pie-btn').addEventListener('click', () => {
+    clearMap();
     state.visualization = 'pie';
     renderers.get(state.visualization)();
 });
@@ -288,6 +303,8 @@ document.getElementById('applyFilters').addEventListener('click', () => {
     pipeline.removeOperation('dateFilter');
     pipeline.removeOperation('sortBy');
     pipeline.removeOperation('topK');
+    pipeline.removeOperation('topKCategories');
+    pipeline.removeOperation('topKCountries');
 
     const f = state.filters;
     pipeline
@@ -300,8 +317,11 @@ document.getElementById('applyFilters').addEventListener('click', () => {
         .filter('subscriberFilter', d => +d.subscriber_count >= f.minSubscribers && +d.subscriber_count <= f.maxSubscribers)
         .filter('videoFilter', d => +d.video_count >= f.minVideos && +d.video_count <= f.maxVideos)
         .filter('dateFilter', d => new Date(d.created_date) >= new Date(f.minDate) && new Date(d.created_date) <= new Date(f.maxDate))
+        .topKBy('topKCountries', 'country', f.topKCountries, 'subscriber_count')
+        .topKBy('topKCategories', 'category', f.topKCategories, 'subscriber_count')
         .sortBy('sortBy', 'subscriber_count', false)
-        .limit('topK', f.topK);
+        .limit('topK', f.topK || defaultFilters.topK);
+
     renderers.get(state.visualization)();
 });
 
@@ -315,6 +335,8 @@ document.getElementById('resetFilters').addEventListener('click', () => {
     pipeline.removeOperation('dateFilter');
     pipeline.removeOperation('sortBy');
     pipeline.removeOperation('topK');
+    pipeline.removeOperation('topKCategories');
+    pipeline.removeOperation('topKCountries');
     resetFilters();
     renderers.get(state.visualization)();
 });

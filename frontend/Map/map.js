@@ -1,5 +1,4 @@
 import pipeline from "../index.js";
-import DataPipeline from "../pipeline.js";
 
 // CONSTANTS
 const ZOOM_THRESHOLD = 5;
@@ -341,7 +340,8 @@ function onEachFeature(feature, layer) {
     const countryCode = feature.properties["ISO3166-1-Alpha-2"];
     const countryName = feature.properties.name;
     showCountryPanel(countryCode, countryName);
-    for (const item of document.querySelectorAll("#countryDropdown .multi-select-item")) if (countryCode === item.textContent) item.querySelector("input").checked = true; else item.querySelector("input").checked = false ;
+      for (const item of document.querySelectorAll("#countryDropdown .multi-select-item"))
+          item.querySelector("input").checked = (item.dataset.value.toUpperCase() || "Non défini") === countryCode;
   });
 }
 

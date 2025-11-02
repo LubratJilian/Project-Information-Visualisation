@@ -1,7 +1,7 @@
 ﻿function baseCountryCodeToFullName(code) {
     const countryCodes = {
         "KR": "South Korea",
-        "": "Unknown Country",
+        "": "Non défini",
         "IN": "India",
         "CL": "Chile",
         "US": "United States",
@@ -112,17 +112,22 @@
         "ME": "Montenegro",
         "UM": "United States Minor Outlying Islands"
     };
-    return countryCodes[code] || "Unknown Country";
+    return countryCodes[code.toUpperCase()] || "Non défini";
 }
 
-function updateMultiSelectDisplay(selectedCountries) {
-    const selectedText = document.getElementById('selected-countries');
-    if (selectedCountries.length === 0)
-        selectedText.textContent = 'Tous les pays';
-    else if (selectedCountries.length === 1)
-        selectedText.textContent = baseCountryCodeToFullName(selectedCountries[0]);
+function updateMultiSelectDisplay(selected, type = 'country') {
+    const triggerId = type === 'country' ? 'countryTrigger' : 'categoryTrigger';
+    const labelSingular = type === 'country' ? 'pays' : 'catégories';
+
+    const trigger = document.getElementById(triggerId);
+    const selectedText = trigger.querySelector('.selected-text');
+
+    if (selected.length === 0)
+        selectedText.textContent = `Tous les ${labelSingular}`;
+    else if (selected.length === 1)
+        selectedText.textContent = type === 'country' ? baseCountryCodeToFullName(selected[0]) : selected[0];
     else
-        selectedText.textContent = `${selectedCountries.length} pays sélectionné(s)`;
+        selectedText.textContent = `${selected.length} ${labelSingular} sélectionné(s)`;
 }
 
 function formatNumber(num) {

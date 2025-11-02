@@ -68,6 +68,41 @@ class DataPipeline {
     }
 
     /**
+     * Keep only the top K items based on the sum of a specified field within groups defined by another field.
+     * @param name {string} Name of the operation.
+     * @param groupField {string} Field to group by.
+     * @param k {number} Number of top items to keep.
+     * @param sumField {string} Field to sum for ranking.
+     * @returns {DataPipeline} The DataPipeline instance for chaining.
+     */
+    topKBy(name, groupField, k, sumField) {
+        if (k <= 0) return this;
+
+        this.operations.set(name, (data) => {
+            const getKeys = d => groupField === 'category'
+                ? d.category.split(',').map(cat => cat.trim())
+                : [d[groupField]];
+
+            const totals = data.reduce((acc, d) => {
+                for (const key of getKeys(d))
+                    acc[key] = (acc[key] || 0) + (+d[sumField]);
+                return acc;
+            }, {});
+
+            const topKeys = new Set(
+                Object.entries(totals)
+                    .sort(([, a], [, b]) => b - a)
+                    .slice(0, k)
+                    .map(([key]) => key)
+            );
+
+            return data.filter(d => getKeys(d).some(key => topKeys.has(key)));
+        });
+
+        return this;
+    }
+
+    /**
      * Limit the number of items in the data array.
      * @param name {string}
      * @param key {string|number}

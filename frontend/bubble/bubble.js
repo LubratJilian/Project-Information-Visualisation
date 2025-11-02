@@ -231,7 +231,7 @@ function showCountries() {
             tooltip.style('opacity', 0);
             countriesSelected = [];
             for (const cb of document.querySelectorAll('#countryDropdown .multi-select-items input[type="checkbox"]'))
-                if (cb.checked) countriesSelected.push(cb.parentElement.textContent);
+                if (cb.checked) countriesSelected.push(cb.value);
             showYoutubers(d.data.country);
         });
 }
@@ -239,7 +239,7 @@ function showCountries() {
 function showYoutubers(country) {
     pipeline.addOperation('countryFilter', data => data.filter(d => d.country === country));
     for (const item of document.querySelectorAll("#countryDropdown .multi-select-item"))
-        item.querySelector("input").checked = item.textContent === country;
+        item.querySelector("input").checked = item.dataset.value.toUpperCase() === country;
     document.getElementById('selected-countries').textContent = country;
 
     const pipelineData = pipeline.run();
@@ -474,6 +474,14 @@ function showVideos() {
 
 function renderBubbleChart() {
     initializeSVG();
+    if (currentCountry && document.getElementById(`countryDropdown-${currentCountry}`).checked === false) {
+        let lastSelected = currentCountry;
+        currentCountry = document.querySelectorAll("#countryDropdown .multi-select-item input[type='checkbox']:checked")[0]?.value || null;
+        currentView = 'youtubers';
+        if (currentCountry)
+            svg.select('.chart-title').text(`YouTubeurs - ${baseCountryCodeToFullName(currentCountry)}`);
+        else currentCountry = lastSelected;
+    }
     if (currentView === 'countries')
         showCountries();
     else if (currentView === 'youtubers')

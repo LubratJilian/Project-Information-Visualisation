@@ -82,4 +82,6 @@
     border: none;
     width: 100%;
     border-radius: 10px;
+    background: var(--input-bg);
+    color: var(--fg);
 }
