@@ -1,6 +1,6 @@
 import DataPipeline from "./pipeline.js";
 import {renderTreemap} from "./box/box.js";
-import {renderMap,clearMap, getGlobalStatsCountry} from "./Map/map.js"
+import {clearMap, renderMap} from "./Map/map.js";
 import {renderPieChart as renderPie} from "./pie/pie.js";
 import {renderBubbleChart} from "./bubble/bubble.js";
 import {renderHistogram, resetZoom} from "./histogram/histogram.js";
@@ -301,6 +301,8 @@ document.getElementById('applyFilters').addEventListener('click', () => {
     pipeline.removeOperation('dateFilter');
     pipeline.removeOperation('sortBy');
     pipeline.removeOperation('topK');
+    pipeline.removeOperation('topKCategories');
+    pipeline.removeOperation('topKCountries');
 
     const f = state.filters;
     pipeline
@@ -331,6 +333,8 @@ document.getElementById('resetFilters').addEventListener('click', () => {
     pipeline.removeOperation('dateFilter');
     pipeline.removeOperation('sortBy');
     pipeline.removeOperation('topK');
+    pipeline.removeOperation('topKCategories');
+    pipeline.removeOperation('topKCountries');
     resetFilters();
     renderers.get(state.visualization)();
 });
