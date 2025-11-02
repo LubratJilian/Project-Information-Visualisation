@@ -24,12 +24,10 @@ body {
 }
 
 .hero {
-    padding: 0.5rem 0.75rem;
-    background: linear-gradient(135deg, rgba(37, 99, 235, 0.95), rgba(14, 165, 233, 0.95)), url('./presentation.png') center/cover;
+    padding: 1rem 1rem;
+    background: linear-gradient(135deg, rgba(37, 99, 235, 0.85), rgba(14, 165, 233, 0.85)), url('./presentation.png') center/cover;
     color: white;
     text-align: center;
-    width: 100vw;
-    margin-left: calc(50% - 50vw);
 }
 
 .toc {
@@ -37,26 +35,25 @@ body {
     justify-content: center;
     flex-wrap: wrap;
     gap: 0.75rem;
-}
 
-.toc button {
-    color: white;
-    background: rgba(255, 255, 255, 0.1);
-    text-decoration: none;
-    padding: 0.5rem 1rem;
-    border-radius: 999px;
-    border: 1px solid rgba(255, 255, 255, 0.4);
-    cursor: pointer;
-}
+    & button {
+        color: white;
+        background: rgba(255, 255, 255, 0.1);
+        text-decoration: none;
+        padding: 0.5rem 1rem;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.4);
 
-.toc button:focus {
-    background: rgba(255, 255, 255, 0.2);
-    transform: translateY(-2px);
-}
+        &:focus {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
 
-.toc button:hover {
-    background: rgba(37, 99, 235, 0.5);
-    transform: translateY(-2px);
+        &:hover {
+            background: rgba(37, 99, 235, 0.5);
+            transform: translateY(-2px);
+        }
+    }
 }
 
 main {
@@ -66,11 +63,6 @@ main {
     margin: 0 auto;
     gap: 1rem;
     width: 100%;
-}
-
-#svg {
-    width: 100%;
-    height: 100%;
     transition: grid-template-columns 0.3s ease;
     min-height: 0;
     max-height: 100%;

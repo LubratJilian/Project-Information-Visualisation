@@ -1,6 +1,6 @@
 import DataPipeline from "./pipeline.js";
-import { renderTreemap } from "./box/box.js";
-import { renderForCountry as renderPie } from "./pie/pie.js";
+import {renderTreemap} from "./box/box.js";
+import {renderPieChart as renderPie} from "./pie/pie.js";
 import {renderBubbleChart} from "./bubble/bubble.js";
 
 const pipeline = new DataPipeline();
@@ -14,10 +14,6 @@ let defaultFilters = {};
 function renderMap() {
     // import this function
 }
-/*
-function renderPie() {
-    // import this function
-}*/
 
 function renderHistogram() {
     // import this function
@@ -292,15 +288,7 @@ document.getElementById('applyFilters').addEventListener('click', () => {
         .sortBy('sortBy', 'subscriber_count', false)
         .limit('topK', f.topK);
 
-        // Pour le pie chart, on passe le pays et la/les catégories sélectionnées à renderPie
-        if (state.visualization === 'pie') {
-            const countries = state.filters.selectedCountries;
-            const categories = state.filters.selectedCategories;
-            const country = (countries && countries.length === 1) ? countries[0] : 'Monde';
-            renderPie(country, categories);
-        } else {
-            renderers.get(state.visualization)();
-        }
+    renderers.get(state.visualization)();
 });
 
 document.getElementById('resetFilters').addEventListener('click', () => {
