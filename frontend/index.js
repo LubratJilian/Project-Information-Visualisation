@@ -1,6 +1,9 @@
 import DataPipeline from "./pipeline.js";
 import {renderTreemap} from "./box/box.js";
+import {renderMap,clearMap, getGlobalStatsCountry} from "./Map/map.js"
+import {renderPieChart as renderPie} from "./pie/pie.js";
 import {renderBubbleChart} from "./bubble/bubble.js";
+import {renderHistogram, resetZoom} from "./histogram/histogram.js";
 import {baseCountryCodeToFullName} from "./utils/utils.js";
 
 const pipeline = new DataPipeline();
@@ -10,18 +13,6 @@ const state = {
 };
 
 let defaultFilters = {};
-
-function renderMap() {
-    // import this function
-}
-
-function renderPie() {
-    // import this function
-}
-
-function renderHistogram() {
-    // import this function
-}
 
 const renderers = new Map([['treemap', renderTreemap], ['bubble', renderBubbleChart], ['map', renderMap], ['pie', renderPie], ['histogram', renderHistogram]]);
 
@@ -265,8 +256,8 @@ function resetFilters() {
     document.getElementById('topKCountries').value = state.filters.topKCountries;
     document.getElementById('topKCategories').value = state.filters.topKCategories;
 
-    pipeline.clearOperations();
-    renderers.get(state.visualization)();
+    if(state.visualization === "map")
+        document.getElementById('metric-choice').value = 'maxSubscribers';
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -274,19 +265,44 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 document.getElementById('box-btn').addEventListener('click', () => {
+    clearMap();
     state.visualization = 'treemap';
+    resetZoom()
     renderers.get(state.visualization)();
 });
 
 document.getElementById('bubbles-btn').addEventListener('click', () => {
+    clearMap();
     state.visualization = 'bubble';
+    resetZoom()
+    renderers.get(state.visualization)();
+});
+
+document.getElementById('histogram-btn').addEventListener('click', () => {
+    state.visualization = 'histogram';
+    document.getElementById('topK').value = state.filters.topK = 50;
+    pipeline.limit('topK', state.filters.topK);
+    renderers.get(state.visualization)();
+});
+
+document.getElementById('pie-btn').addEventListener('click', () => {
+    state.visualization = 'pie';
     renderers.get(state.visualization)();
 });
 
 document.getElementById('applyFilters').addEventListener('click', () => {
-    pipeline.clearOperations();
-    const f = state.filters;
+    if (state.visualization === 'histogram') {
+        resetZoom();
+    }
 
+    pipeline.removeOperation('countryFilter');
+    pipeline.removeOperation('categoryFilter');
+    pipeline.removeOperation('subscriberFilter');
+    pipeline.removeOperation('dateFilter');
+    pipeline.removeOperation('sortBy');
+    pipeline.removeOperation('topK');
+
+    const f = state.filters;
     pipeline
         .filter('countryFilter', d => !f.selectedCountries?.length || f.selectedCountries.includes(d.country))
         .filter('categoryFilter', d => {
@@ -306,7 +322,15 @@ document.getElementById('applyFilters').addEventListener('click', () => {
 });
 
 document.getElementById('resetFilters').addEventListener('click', () => {
-    pipeline.clearOperations();
+    if (state.visualization === 'histogram') {
+        resetZoom();
+    }
+    pipeline.removeOperation('countryFilter');
+    pipeline.removeOperation('categoryFilter');
+    pipeline.removeOperation('subscriberFilter');
+    pipeline.removeOperation('dateFilter');
+    pipeline.removeOperation('sortBy');
+    pipeline.removeOperation('topK');
     resetFilters();
     renderers.get(state.visualization)();
 });
@@ -315,5 +339,17 @@ document.getElementById("filter-toggle").addEventListener("click", () => {
     document.getElementById("main-layout").classList.toggle("open");
     new Promise(resolve => setTimeout(resolve, 250)).then(() => renderers.get(state.visualization)());
 });
+
+document.getElementById('map-btn').addEventListener('click', () => {
+    clearMap();
+    state.visualization = 'map';
+    renderers.get(state.visualization)();
+});
+
+window.closeSidePanel = function () {
+    const panel = document.getElementById("side-panel");
+    panel.classList.add("hidden");
+    pipeline.removeOperation("countryFilter")
+}
 
 export default pipeline;
