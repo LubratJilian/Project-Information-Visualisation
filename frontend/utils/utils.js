@@ -112,7 +112,7 @@
         "ME": "Montenegro",
         "UM": "United States Minor Outlying Islands"
     };
-    return countryCodes[code.toUpperCase()] || "Unknown Country";
+    return countryCodes[code.toUpperCase()] || "Non défini";
 }
 
 function updateMultiSelectDisplay(selected, type = 'country') {
