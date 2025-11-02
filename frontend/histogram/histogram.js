@@ -178,7 +178,6 @@ function renderMainView() {
         }))
         .filter(d => d.metric > 0)
         .sort((a, b) => b.metric - a.metric)
-        .slice(0, 50); // Show top 50 channels
 
     if (channelsWithMetrics.length === 0) {
         svg.append('text')
