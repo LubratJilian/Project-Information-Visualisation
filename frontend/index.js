@@ -1,6 +1,7 @@
 import DataPipeline from "./pipeline.js";
 import {renderTreemap} from "./box/box.js";
 import {renderBubbleChart} from "./bubble/bubble.js";
+import {renderHistogram, resetZoom} from "./histogram/histogram.js";
 
 const pipeline = new DataPipeline();
 
@@ -15,10 +16,6 @@ function renderMap() {
 }
 
 function renderPie() {
-    // import this function
-}
-
-function renderHistogram() {
     // import this function
 }
 
@@ -262,15 +259,28 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 document.getElementById('box-btn').addEventListener('click', () => {
     state.visualization = 'treemap';
+    resetZoom()
     renderers.get(state.visualization)();
 });
 
 document.getElementById('bubbles-btn').addEventListener('click', () => {
     state.visualization = 'bubble';
+    resetZoom()
+    renderers.get(state.visualization)();
+});
+	
+document.getElementById('histogram-btn').addEventListener('click', () => {
+    state.visualization = 'histogram';
+    document.getElementById('topK').value = state.filters.topK = 50;
+    pipeline.limit('topK', state.filters.topK);
     renderers.get(state.visualization)();
 });
 
 document.getElementById('applyFilters').addEventListener('click', () => {
+    if (state.visualization === 'histogram') {
+        resetZoom();
+    }
+    
     pipeline.clearOperations();
     const f = state.filters;
 
@@ -291,6 +301,9 @@ document.getElementById('applyFilters').addEventListener('click', () => {
 });
 
 document.getElementById('resetFilters').addEventListener('click', () => {
+    if (state.visualization === 'histogram') {
+        resetZoom();
+    }
     pipeline.clearOperations();
     resetFilters();
     renderers.get(state.visualization)();
