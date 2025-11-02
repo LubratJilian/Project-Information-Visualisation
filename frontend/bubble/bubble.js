@@ -239,7 +239,7 @@ function showCountries() {
 function showYoutubers(country) {
     pipeline.addOperation('countryFilter', data => data.filter(d => d.country === country));
     for (const item of document.querySelectorAll("#countryDropdown .multi-select-item"))
-        item.querySelector("input").checked = item.textContent === country;
+        item.querySelector("input").checked = item.dataset.value.toUpperCase() === country;
     document.getElementById('selected-countries').textContent = country;
 
     const pipelineData = pipeline.run();
@@ -474,6 +474,11 @@ function showVideos() {
 
 function renderBubbleChart() {
     initializeSVG();
+    if (currentCountry && document.getElementById(`countryDropdown-${currentCountry}`).checked === false) {
+        currentCountry = document.querySelectorAll("#countryDropdown .multi-select-item input[type='checkbox']:checked")[0]?.value || null;
+        currentView = 'youtubers';
+        svg.select('.chart-title').text(`YouTubeurs - ${baseCountryCodeToFullName(currentCountry)}`);
+    }
     if (currentView === 'countries')
         showCountries();
     else if (currentView === 'youtubers')

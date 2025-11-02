@@ -121,6 +121,13 @@ function prepareHierarchy() {
     let data = pipeline.run();
     let hierarchy;
 
+    const id = state.selectedCountry === "Non défini" ? "" : state.selectedCountry;
+
+    if (state.selectedCountry && document.getElementById(`countryDropdown-${id}`).checked === false) {
+        state.selectedCountry = document.querySelectorAll("#countryDropdown .multi-select-item input[type='checkbox']:checked")[0]?.value || null;
+        updateTitle();
+    }
+
     if (!state.selectedCountry) {
         const countryGroups = Array.from(d3.group(data, d => d.country || 'Non défini'), ([country, channels]) => ({
             name: country,
@@ -408,7 +415,8 @@ function renderTreemap() {
                 state.selectedCountry = d.data.name;
                 pipeline.addOperation('countryFilter', data => data.filter(item => (item.country || 'Non défini') === state.selectedCountry));
 
-                for (const item of document.querySelectorAll("#countryDropdown .multi-select-item")) item.querySelector("input").checked = item.textContent === state.selectedCountry;
+                for (const item of document.querySelectorAll("#countryDropdown .multi-select-item"))
+                    item.querySelector("input").checked = (item.dataset.value.toUpperCase() || "Non défini") === state.selectedCountry;
                 updateMultiSelectDisplay([state.selectedCountry]);
 
                 renderTreemap();
