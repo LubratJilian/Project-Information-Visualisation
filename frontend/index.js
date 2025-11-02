@@ -1,7 +1,7 @@
 import DataPipeline from "./pipeline.js";
 import {renderTreemap} from "./box/box.js";
 import {renderBubbleChart} from "./bubble/bubble.js";
-import {renderHistogram} from "./histogram/histogram.js";
+import {renderHistogram, resetZoom} from "./histogram/histogram.js";
 
 const pipeline = new DataPipeline();
 
@@ -259,11 +259,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 document.getElementById('box-btn').addEventListener('click', () => {
     state.visualization = 'treemap';
+    resetZoom()
     renderers.get(state.visualization)();
 });
 
 document.getElementById('bubbles-btn').addEventListener('click', () => {
     state.visualization = 'bubble';
+    resetZoom()
     renderers.get(state.visualization)();
 });
 	
@@ -273,6 +275,10 @@ document.getElementById('histogram-btn').addEventListener('click', () => {
 });
 
 document.getElementById('applyFilters').addEventListener('click', () => {
+    if (state.visualization === 'histogram') {
+        resetZoom();
+    }
+    
     pipeline.clearOperations();
     const f = state.filters;
 
@@ -293,6 +299,9 @@ document.getElementById('applyFilters').addEventListener('click', () => {
 });
 
 document.getElementById('resetFilters').addEventListener('click', () => {
+    if (state.visualization === 'histogram') {
+        resetZoom();
+    }
     pipeline.clearOperations();
     resetFilters();
     renderers.get(state.visualization)();
