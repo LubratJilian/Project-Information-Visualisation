@@ -1,5 +1,6 @@
 import DataPipeline from "./pipeline.js";
 import {renderTreemap} from "./box/box.js";
+import {renderPieChart as renderPie} from "./pie/pie.js";
 import {renderBubbleChart} from "./bubble/bubble.js";
 import {renderHistogram, resetZoom} from "./histogram/histogram.js";
 
@@ -12,10 +13,6 @@ const state = {
 let defaultFilters = {};
 
 function renderMap() {
-    // import this function
-}
-
-function renderPie() {
     // import this function
 }
 
@@ -268,7 +265,7 @@ document.getElementById('bubbles-btn').addEventListener('click', () => {
     resetZoom()
     renderers.get(state.visualization)();
 });
-	
+
 document.getElementById('histogram-btn').addEventListener('click', () => {
     state.visualization = 'histogram';
     document.getElementById('topK').value = state.filters.topK = 50;
@@ -276,14 +273,18 @@ document.getElementById('histogram-btn').addEventListener('click', () => {
     renderers.get(state.visualization)();
 });
 
+document.getElementById('pie-btn').addEventListener('click', () => {
+    state.visualization = 'pie';
+    renderers.get(state.visualization)();
+});
+
 document.getElementById('applyFilters').addEventListener('click', () => {
     if (state.visualization === 'histogram') {
         resetZoom();
     }
-    
+
     pipeline.clearOperations();
     const f = state.filters;
-
     pipeline
         .filter('countryFilter', d => !f.selectedCountries?.length || f.selectedCountries.includes(d.country))
         .filter('categoryFilter', d => {
