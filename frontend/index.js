@@ -1,6 +1,6 @@
 import DataPipeline from "./pipeline.js";
 import { renderTreemap } from "./box/box.js";
-import { renderForCountry as renderPie, showPie } from "./pie/pie.js";
+import { renderForCountry as renderPie } from "./pie/pie.js";
 import {renderBubbleChart} from "./bubble/bubble.js";
 
 const pipeline = new DataPipeline();
@@ -14,10 +14,10 @@ let defaultFilters = {};
 function renderMap() {
     // import this function
 }
-
+/*
 function renderPie() {
     // import this function
-}
+}*/
 
 function renderHistogram() {
     // import this function
@@ -303,6 +303,7 @@ document.getElementById("filter-toggle").addEventListener("click", () => {
 });
 
 document.getElementById('pie-btn').addEventListener('click', () => {
+    state.visualization = 'pie';
     renderPie('Monde');
 });
 

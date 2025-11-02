@@ -1,3 +1,26 @@
+// Inject pie chart CSS styles dynamically
+function injectPieStyles() {
+  if (document.getElementById('pie-style')) return;
+  const style = document.createElement('style');
+  style.id = 'pie-style';
+  style.textContent = `
+body{font-family: Arial, Helvetica, sans-serif; margin:20px}
+header{margin-bottom:12px}
+#chart{display:inline-block;vertical-align:top}
+#legend{display:inline-block; width:260px; margin-left:18px; vertical-align:top}
+.item{display:flex;align-items:center;margin:6px 0}
+.swatch{width:18px;height:18px;margin-right:8px;border-radius:3px}
+.label{font-size:14px}
+.pie-tooltip{position:absolute;background:#fff;border:1px solid rgba(0,0,0,0.12);padding:8px;border-radius:4px;box-shadow:0 4px 12px rgba(0,0,0,0.08);pointer-events:none;font-size:13px}
+.chart-title{font-size:18px;margin:6px 0 10px 0;font-weight:700;text-align:center;width:100%}
+@media (max-width:800px){
+  #chart svg{width:100%;height:auto}
+  #legend{display:block;width:100%;margin-left:0;margin-top:12px}
+}
+`;
+  document.head.appendChild(style);
+}
+
 // Use the d3 instance injected on window by pie.html (loaded from CDN)
 const d3 = window.d3;
 
@@ -512,6 +535,7 @@ document.getElementById('pie-btn').addEventListener('click', () => {
 export { renderForCountry };
 // Create/show pie DOM and prepare the view; exported so index.js can call it.
 function showPie() {
+  injectPieStyles();
   // hide filter panel while pie is visible to avoid layout shifting
   const filter = document.getElementById('filter-panel');
   if (filter) filter.style.display = 'none';
