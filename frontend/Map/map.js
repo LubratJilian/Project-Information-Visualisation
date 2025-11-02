@@ -69,7 +69,7 @@ async function getStatsCountry() {
       avgVideos: d3.mean(channels, d => +d.video_count),
       totalVideos: d3.sum(channels, d => +d.video_count),
     }), true)
-    .run(["convert_map"]);
+    .run(["convert_map", "countryFilter"]);
   pipeline.removeOperation('groupby_country');
   pipeline.removeOperation("channels_data");
   return data
@@ -83,7 +83,7 @@ async function getStatsWorld() {
     avgVideos: d3.mean(data, d => +d.video_count),
     totalVideos: d3.sum(data, d => +d.video_count),
     countries: new Set(data.map(d => d.country)).size
-  })).run(["convert_map"]);
+  })).run(["convert_map", "countryFilter"]);
   pipeline.removeOperation("calculateStats");
   return res
 }
@@ -584,7 +584,7 @@ function showCountryPanel(countryCode, countryName) {
   
   if (state.previousCountry === countryCode && !panel.classList.contains("hidden")) {
     panel.classList.add("hidden");
-    pipeline.removeOperation("countryFilter");
+    //pipeline.removeOperation("countryFilter");
     return;
   }
   
@@ -607,7 +607,7 @@ function showCountryPanel(countryCode, countryName) {
     }
 
     else{
-          pipeline.removeOperation("countryFilter");
+         // pipeline.removeOperation("countryFilter");
     }
     
     const topChannels = pipeline.sortBy("sortby", "subscriber_count", false).run();
@@ -619,7 +619,7 @@ function showCountryPanel(countryCode, countryName) {
     
     content.innerText = "";
     drawBarChart(topChannels);
-    pipeline.removeOperation("countryFilter");
+    //pipeline.removeOperation("countryFilter");
   }, 0);
 }
 
@@ -849,7 +849,7 @@ function renderMap() {
   });
 
   pipeline.load("../data/youtube.csv", "csv").then(() => {
-    pipeline.run();
+    pipeline.run(["countryFilter"]);
     
     createMap().then(() => {
       d3.csv("./Map/channels_with_coordinates.csv").then(data => {
