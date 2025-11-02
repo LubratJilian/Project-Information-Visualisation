@@ -1,9 +1,7 @@
 import pipeline from "../index.js";
-import {baseCountryCodeToFullName, updateMultiSelectDisplay} from "../utils/utils.js";
 
 
 const state = {
-    currentCountry: null,
     currentCategory: null,
     countriesSelected: [],
     isInitialized: false
@@ -17,34 +15,9 @@ let width;
 let height;
 let radius;
 
-function getCountryName(code) {
-    if (!code) return 'Monde';
-    return baseCountryCodeToFullName(code) || code;
-}
-
 function handleBackButtonClick() {
     if (state.currentCategory) {
         state.currentCategory = null;
-        renderPieChart();
-    } else if (state.currentCountry) {
-        state.currentCountry = null;
-        if (state.countriesSelected.length > 0) {
-            pipeline.addOperation('countryFilter', data =>
-                data.filter(d => state.countriesSelected.includes(d.country))
-            );
-            for (const item of document.querySelectorAll("#countryDropdown .multi-select-item")) {
-                if (state.countriesSelected.includes(item.textContent)) {
-                    item.querySelector("input").checked = true;
-                }
-            }
-            updateMultiSelectDisplay(state.countriesSelected);
-        } else {
-            pipeline.removeOperation("countryFilter");
-            for (const cb of document.querySelectorAll("#countryDropdown .multi-select-items input[type='checkbox']")) {
-                cb.checked = false;
-            }
-            updateMultiSelectDisplay([]);
-        }
         renderPieChart();
     }
 }
@@ -127,31 +100,10 @@ function initializeSVG() {
 function prepareData() {
     const data = pipeline.run();
 
-    if (!state.currentCountry) {
-
-        const countryData = d3.rollup(
-            data,
-            v => d3.sum(v, d => +d.view_count || 0),
-            d => d.country || 'Unknown'
-        );
-
-        return Array.from(countryData, ([country, views]) => ({
-            name: getCountryName(country),
-            code: country,
-            value: views,
-            isCountry: true
-        })).filter(d => d.code !== 'Unknown')
-            .sort((a, b) => b.value - a.value);
-
-    } else if (!state.currentCategory) {
-
-        const countryData = data.filter(d =>
-            (d.country || 'Unknown') === state.currentCountry
-        );
-
-
+    if (!state.currentCategory) {
+        // Vue par catégories
         const expandedData = [];
-        for (const item of countryData) {
+        for (const item of data) {
             const categories = item.category ?
                 item.category.split(',').map(c => c.trim()) :
                 ['Non défini'];
@@ -175,7 +127,6 @@ function prepareData() {
             isCategory: true
         })).sort((a, b) => b.value - a.value);
 
-
         if (result.length > 10) {
             const top9 = result.slice(0, 9);
             const others = result.slice(9);
@@ -192,9 +143,7 @@ function prepareData() {
         return result;
 
     } else {
-
         const categoryData = data.filter(d => {
-            if ((d.country || 'Unknown') !== state.currentCountry) return false;
             const categories = d.category ?
                 d.category.split(',').map(c => c.trim()) :
                 [];
@@ -212,7 +161,6 @@ function prepareData() {
             value: views,
             isChannel: true
         })).sort((a, b) => b.value - a.value);
-
 
         if (result.length > 10) {
             const top9 = result.slice(0, 9);
@@ -233,11 +181,9 @@ function prepareData() {
 
 
 function updateTitle() {
-    let title = 'Vues par Pays';
+    let title = 'Vues par Catégorie';
 
-    if (state.currentCountry && !state.currentCategory) {
-        title = `Catégories - ${getCountryName(state.currentCountry)}`;
-    } else if (state.currentCountry && state.currentCategory) {
+    if (state.currentCategory) {
         title = `Chaînes - ${state.currentCategory}`;
     }
 
@@ -246,26 +192,15 @@ function updateTitle() {
 
 
 function updateBackButton() {
-    const shouldShow = state.currentCountry !== null;
+    const shouldShow = state.currentCategory !== null;
     svg.select('.back-button').style('display', shouldShow ? 'block' : 'none');
 }
 
-function colorFromCode(code) {
-    const hash = Array.from(code).reduce((acc, c) => acc + c.charCodeAt(0), 0);
-    return d3.interpolateRainbow((hash % 360) / 360);
-}
-
 function createColorScale(data) {
-    if (!state.currentCountry) {
-        return d3.scaleOrdinal()
-            .domain(data.map(d => d.name))
-            .range(data.map(d => colorFromCode(d.code)));
-    } else {
-        const colors = d3.quantize(d3.interpolateTurbo, data.length);
-        return d3.scaleOrdinal()
-            .domain(data.map(d => d.name))
-            .range(colors);
-    }
+    const colors = d3.quantize(d3.interpolateTurbo, data.length);
+    return d3.scaleOrdinal()
+        .domain(data.map(d => d.name))
+        .range(colors);
 }
 
 function renderPieChart() {
@@ -357,7 +292,6 @@ function renderPieChart() {
             const percent = ((d.data.value / total) * 100).toFixed(1);
             return function (t) {
                 if (t > 0.5) {
-
                     const angle = d.endAngle - d.startAngle;
                     if (angle > 0.2) {
                         that.text(`${percent}%`);
@@ -400,30 +334,7 @@ function renderPieChart() {
         .on('click', function (event, d) {
             tooltip.style('opacity', 0);
 
-            if (d.data.isCountry) {
-
-                state.countriesSelected = [];
-                const checkboxes = document.querySelectorAll('#countryDropdown .multi-select-items input[type="checkbox"]');
-                for (const cb of checkboxes) {
-                    if (cb.checked) {
-                        state.countriesSelected.push(cb.parentElement.textContent);
-                    }
-                }
-
-                state.currentCountry = d.data.code;
-                pipeline.addOperation('countryFilter', data =>
-                    data.filter(item => (item.country || 'Unknown') === state.currentCountry)
-                );
-
-                for (const item of document.querySelectorAll("#countryDropdown .multi-select-item")) {
-                    item.querySelector("input").checked = item.textContent === d.data.code;
-                }
-                updateMultiSelectDisplay([d.data.code]);
-
-                renderPieChart();
-
-            } else if (d.data.isCategory && !d.data.isOthers) {
-
+            if (d.data.isCategory && !d.data.isOthers) {
                 state.currentCategory = d.data.name;
                 renderPieChart();
             }
