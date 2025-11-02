@@ -2,7 +2,7 @@ import pipeline from "../index.js";
 import {baseCountryCodeToFullName, formatNumber, truncateText, updateMultiSelectDisplay} from "../utils/utils.js";
 
 const state = {
-    selectedCountry: null, selectedCategory: null, countriesSelected: [], isInitialized: false
+    selectedCountry: null, selectedCategory: null, countriesSelected: [], categoriesSelected: [], isInitialized: false
 };
 let svg;
 let tooltip;
@@ -13,6 +13,27 @@ let height;
 function handleBackButtonClick() {
     if (state.selectedCategory) {
         state.selectedCategory = null;
+
+        if (state.categoriesSelected.length > 0) {
+            pipeline.addOperation('categoryFilter', data => {
+                return data.filter(d => {
+                    if (!d.category) return false;
+                    const channelCategories = new Set(d.category.split(',').map(cat => cat.trim()));
+                    return state.categoriesSelected.some(selected => channelCategories.has(selected));
+                });
+            });
+
+            for (const item of document.querySelectorAll("#categoryDropdown .multi-select-item")) {
+                const checkbox = item.querySelector("input");
+                checkbox.checked = state.categoriesSelected.includes(checkbox.value);
+            }
+            updateMultiSelectDisplay(state.categoriesSelected, 'category');
+        } else {
+            pipeline.removeOperation("categoryFilter");
+            for (const cb of document.querySelectorAll("#categoryDropdown .multi-select-items input[type='checkbox']")) cb.checked = false;
+            updateMultiSelectDisplay([], 'category');
+        }
+
         renderTreemap();
     } else if (state.selectedCountry) {
         state.selectedCountry = null;
@@ -344,8 +365,7 @@ function renderTreemap() {
             if (d.data.isCountry || d.data.isCategory) d3.select(this).select('.node-rect')
                 .transition()
                 .duration(200)
-                .attr('opacity', 1);
-            else d3.select(this).select('.node-overlay')
+                .attr('opacity', 1); else d3.select(this).select('.node-overlay')
                 .transition()
                 .duration(200)
                 .attr('fill', 'rgba(0,0,0,0.1)');
@@ -370,8 +390,7 @@ function renderTreemap() {
             if (d.data.isCountry || d.data.isCategory) d3.select(this).select('.node-rect')
                 .transition()
                 .duration(200)
-                .attr('opacity', 0.8);
-            else d3.select(this).select('.node-overlay')
+                .attr('opacity', 0.8); else d3.select(this).select('.node-overlay')
                 .transition()
                 .duration(200)
                 .attr('fill', 'rgba(0,0,0,0.3)');
@@ -394,7 +413,24 @@ function renderTreemap() {
 
                 renderTreemap();
             } else if (d.data.isCategory) {
+                state.categoriesSelected = [];
+                for (const cb of document.querySelectorAll('#categoryDropdown .multi-select-items input[type="checkbox"]')) if (cb.checked) state.categoriesSelected.push(cb.value);
+
                 state.selectedCategory = d.data.name;
+
+                pipeline.addOperation('categoryFilter', data => {
+                    return data.filter(item => {
+                        const channelCategories = new Set(item.category.split(',').map(c => c.trim()));
+                        return item.category ? channelCategories.has(state.selectedCategory) : false;
+                    });
+                });
+
+                for (const item of document.querySelectorAll("#categoryDropdown .multi-select-item")) {
+                    const checkbox = item.querySelector("input");
+                    checkbox.checked = checkbox.value === state.selectedCategory;
+                }
+                updateMultiSelectDisplay([state.selectedCategory], 'category');
+
                 renderTreemap();
             } else if (d.data.isChannel && d.data.data?.channel_id) window.open(`https://www.youtube.com/channel/${d.data.data.channel_id}`, '_blank');
         });
