@@ -81,12 +81,38 @@ main {
         width: 100%;
     }
 
+    #filter-toggle {
+        display: flex;
+        align-items: center;
+        height: 100%;
+
+        span.text {
+            display: block;
+        }
+
+        span.cross {
+            display: none;
+        }
+    }
+
     &.open {
         grid-template-columns: 8fr 3fr;
 
         #filter-panel {
             transition: all 0.3s ease;
             align-self: center;
+
+            #filter-toggle {
+                justify-content: end;
+
+                span.text {
+                    display: none;
+                }
+
+                span.cross {
+                    display: block;
+                }
+            }
 
             .filter-content {
                 display: flex;
