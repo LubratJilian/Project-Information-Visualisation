@@ -128,20 +128,34 @@ function prepareData() {
     const data = pipeline.run();
 
     if (!state.currentCountry) {
-
+        // Agrégation par pays (Monde)
         const countryData = d3.rollup(
             data,
             v => d3.sum(v, d => +d.view_count || 0),
             d => d.country || 'Unknown'
         );
-
-        return Array.from(countryData, ([country, views]) => ({
+        let arr = Array.from(countryData, ([country, views]) => ({
             name: getCountryName(country),
             code: country,
             value: views,
             isCountry: true
         })).filter(d => d.code !== 'Unknown')
             .sort((a, b) => b.value - a.value);
+        // Toujours 10 couleurs (9 pays + Autres) si plus de 10 pays
+        if (arr.length > 10) {
+            const top9 = arr.slice(0, 9);
+            const others = arr.slice(9);
+            const othersSum = d3.sum(others, d => d.value);
+            top9.push({
+                name: 'Autres',
+                code: 'Autres',
+                value: othersSum,
+                isCountry: true,
+                isOthers: true
+            });
+            return top9;
+        }
+        return arr;
 
     } else if (!state.currentCategory) {
 
@@ -256,16 +270,11 @@ function colorFromCode(code) {
 }
 
 function createColorScale(data) {
-    if (!state.currentCountry) {
-        return d3.scaleOrdinal()
-            .domain(data.map(d => d.name))
-            .range(data.map(d => colorFromCode(d.code)));
-    } else {
-        const colors = d3.quantize(d3.interpolateTurbo, data.length);
-        return d3.scaleOrdinal()
-            .domain(data.map(d => d.name))
-            .range(colors);
-    }
+    // Utilise toujours la même logique de palette (Turbo) pour tous les niveaux
+    const colors = d3.quantize(d3.interpolateTurbo, data.length);
+    return d3.scaleOrdinal()
+        .domain(data.map(d => d.name))
+        .range(colors);
 }
 
 function renderPieChart() {
