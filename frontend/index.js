@@ -279,6 +279,7 @@ document.getElementById('bubbles-btn').addEventListener('click', () => {
 });
 
 document.getElementById('histogram-btn').addEventListener('click', () => {
+    clearMap();
     state.visualization = 'histogram';
     document.getElementById('topK').value = state.filters.topK = 50;
     pipeline.limit('topK', state.filters.topK);
@@ -286,6 +287,7 @@ document.getElementById('histogram-btn').addEventListener('click', () => {
 });
 
 document.getElementById('pie-btn').addEventListener('click', () => {
+    clearMap();
     state.visualization = 'pie';
     renderers.get(state.visualization)();
 });
