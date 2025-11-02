@@ -475,9 +475,12 @@ function showVideos() {
 function renderBubbleChart() {
     initializeSVG();
     if (currentCountry && document.getElementById(`countryDropdown-${currentCountry}`).checked === false) {
+        let lastSelected = currentCountry;
         currentCountry = document.querySelectorAll("#countryDropdown .multi-select-item input[type='checkbox']:checked")[0]?.value || null;
         currentView = 'youtubers';
-        svg.select('.chart-title').text(`YouTubeurs - ${baseCountryCodeToFullName(currentCountry)}`);
+        if (currentCountry)
+            svg.select('.chart-title').text(`YouTubeurs - ${baseCountryCodeToFullName(currentCountry)}`);
+        else currentCountry = lastSelected;
     }
     if (currentView === 'countries')
         showCountries();
